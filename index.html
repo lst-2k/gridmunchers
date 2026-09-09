@@ -705,31 +705,95 @@ function calculatePlayerStats(p) {
   return totals;
 }
 
-function updateIndividualLeaderboard() {
-  const tbody = document.getElementById('individual-leaderboard-body');
-  if (!tbody) return;
+function getPlayerTagKey(p) {
+  // Check all potential properties where a player's CC tag might live
+  const raw = String(p.linkLabel || p.tag || p.tier || p.division || '').toLowerCase();
+  const match = raw.match(/cc-?[a-j]/i);
+  if (match) {
+    const letter = match[0].replace(/[^a-z]/gi, '').slice(-1);
+    return 'cc-' + letter;
+  }
+  return '';
+}
 
-  const parInputs = document.querySelectorAll('.par-input');
-
+function recalculateSeasonPoints() {
+  window.seasonPoints = {};
+  
+  const pointDistribution = [100, 60, 40, 25, 15, 10, 8, 6, 4, 2];
   const cutBonusMap = {
     'cc-a': 20, 'cc-b': 18, 'cc-c': 16, 'cc-d': 14, 'cc-e': 12,
     'cc-f': 10, 'cc-g': 8,  'cc-h': 6,  'cc-i': 4,  'cc-j': 2
   };
 
-  const pointDistribution = [25, 15, 10, 5];
+  if (!window.leagueHistory || window.leagueHistory.length === 0) return;
 
-  // Helper function: extracts "cc-x" from p.linkLabel (e.g. "TOUR CC-H" -> "cc-h")
-  const getPlayerTag = (p) => {
-    const raw = String(p.linkLabel || p.tag || '').toLowerCase();
-    const match = raw.match(/cc-?[a-j]/i);
-    if (match) {
-      const letter = match[0].replace(/[^a-z]/gi, '').slice(-1);
-      return 'cc-' + letter;
-    }
-    return '';
+  window.leagueHistory.forEach(event => {
+    if (!event.rankings) return;
+
+    let eventLowRound = Infinity;
+    event.rankings.forEach(entry => {
+      if (entry.holeScores && entry.holeScores.length > 0) {
+        for (let r = 0; r < 4; r++) {
+          const rHoles = entry.holeScores.slice(r * 18, (r + 1) * 18);
+          if (rHoles.length === 18 && rHoles.every(h => !isNaN(parseInt(h.score)) && parseInt(h.score) > 0)) {
+            const rdTotal = rHoles.reduce((acc, h) => acc + parseInt(h.score), 0);
+            if (rdTotal < eventLowRound) eventLowRound = rdTotal;
+          }
+        }
+      }
+    });
+
+    let pointsAppliedCount = 0;
+
+    event.rankings.forEach(entry => {
+      const globalPlayer = window.players?.find(p => p.name === entry.name);
+      const tagKey = getPlayerTagKey(entry) || (globalPlayer ? getPlayerTagKey(globalPlayer) : '');
+
+      let holdsLowRound = false;
+      if (eventLowRound !== Infinity && entry.holeScores && entry.holeScores.length > 0) {
+        for (let r = 0; r < 4; r++) {
+          const rHoles = entry.holeScores.slice(r * 18, (r + 1) * 18);
+          if (rHoles.length === 18 && rHoles.every(h => !isNaN(parseInt(h.score)) && parseInt(h.score) > 0)) {
+            if (rHoles.reduce((acc, h) => acc + parseInt(h.score), 0) === eventLowRound) {
+              holdsLowRound = true;
+            }
+          }
+        }
+      }
+
+      const lowRoundBonus = holdsLowRound ? 20 : 0;
+      let eventPts = 0;
+
+      if (entry.status !== 'MC') {
+        const posPts = pointDistribution[pointsAppliedCount] || 0;
+        pointsAppliedCount++;
+
+        const madeCutBonus = cutBonusMap[tagKey] || 0;
+        eventPts = posPts + madeCutBonus + lowRoundBonus;
+      } else {
+        eventPts = lowRoundBonus;
+      }
+
+      window.seasonPoints[entry.name] = (window.seasonPoints[entry.name] || 0) + eventPts;
+    });
+  });
+}
+
+function updateIndividualLeaderboard() {
+  const tbody = document.getElementById('individual-leaderboard-body');
+  if (!tbody) return;
+
+  recalculateSeasonPoints();
+
+  const parInputs = document.querySelectorAll('.par-input');
+  const cutBonusMap = {
+    'cc-a': 20, 'cc-b': 18, 'cc-c': 16, 'cc-d': 14, 'cc-e': 12,
+    'cc-f': 10, 'cc-g': 8,  'cc-h': 6,  'cc-i': 4,  'cc-j': 2
   };
+  const pointDistribution = [100, 60, 40, 25, 15, 10, 8, 6, 4, 2];
 
-  // 1. Calculate scores & hole counts for all players
+  let weekLowRound = Infinity;
+
   let playerData = window.players.map(p => {
     let grandTotal = 0;
     let relToParNum = 0;
@@ -756,6 +820,7 @@ function updateIndividualLeaderboard() {
 
       if (rdHoles === 18) {
         roundTotals[`r${rd}`] = rdSum;
+        if (rdSum < weekLowRound) weekLowRound = rdSum;
       } else if (rdHoles > 0) {
         roundTotals[`r${rd}`] = `${rdSum}*`;
       }
@@ -767,49 +832,55 @@ function updateIndividualLeaderboard() {
 
     return {
       name: p.name,
-      tagKey: getPlayerTag(p),
+      tagKey: getPlayerTagKey(p),
       roundTotals: roundTotals,
       grandTotal: grandTotal,
       relToParNum: relToParNum,
       relToParStr: relToParStr,
       completedHoles: completedHoles,
       madeCut: completedHoles === 72,
-      bankedPts: window.seasonPoints[p.name] || 0
+      bankedPts: window.seasonPoints?.[p.name] || 0
     };
   });
 
-  // 2. Rank active players by score to calculate position + cut bonus points
   let rankedActivePlayers = [...playerData]
     .filter(p => p.completedHoles > 0)
     .sort((a, b) => a.relToParNum - b.relToParNum || a.grandTotal - b.grandTotal);
 
   let weekPointsMap = {};
+  let lowRoundMap = {};
   let posCount = 0;
 
   rankedActivePlayers.forEach(p => {
+    let holdsLowRound = false;
+    if (weekLowRound !== Infinity) {
+      holdsLowRound = Object.values(p.roundTotals).some(val => parseInt(val) === weekLowRound);
+    }
+    lowRoundMap[p.name] = holdsLowRound;
+    const lowRoundBonus = holdsLowRound ? 20 : 0;
+
     if (p.madeCut) {
       const posPts = pointDistribution[posCount] || 0;
       posCount++;
-      const bonusPts = cutBonusMap[p.tagKey] || 0;
-      weekPointsMap[p.name] = posPts + bonusPts;
+      const madeCutBonus = cutBonusMap[p.tagKey] || 0;
+      weekPointsMap[p.name] = posPts + madeCutBonus + lowRoundBonus;
     } else {
-      weekPointsMap[p.name] = 0;
+      weekPointsMap[p.name] = lowRoundBonus;
     }
   });
 
-  // 3. Attach calculated weekly & total points to players
   let finalLeaderboard = playerData.map(p => {
     const weekPts = weekPointsMap[p.name] || 0;
     const totalPts = p.bankedPts + weekPts;
 
     return {
       ...p,
+      hasLowRound: !!lowRoundMap[p.name],
       weekPts: weekPts,
       totalPts: totalPts
     };
   });
 
-  // 4. Sort Leaderboard by Total Season Points (Highest First), then lowest score
   finalLeaderboard.sort((a, b) => {
     if (b.totalPts !== a.totalPts) return b.totalPts - a.totalPts;
     if (a.completedHoles === 0 && b.completedHoles === 0) return 0;
@@ -818,23 +889,33 @@ function updateIndividualLeaderboard() {
     return a.relToParNum - b.relToParNum;
   });
 
-  // 5. Render HTML table rows
   tbody.innerHTML = finalLeaderboard.map((p, idx) => {
     const hasPlayed = p.completedHoles > 0 || p.totalPts > 0;
     const relColor = p.relToParNum < 0 ? '#f87171' : (p.relToParNum === 0 ? '#4ade80' : '#cbd5e1');
 
+    const formatRdCell = (val) => {
+      if (parseInt(val) === weekLowRound && weekLowRound !== Infinity) {
+        return `<td style="font-weight:900; color:#4ade80;">${val}</td>`;
+      }
+      return `<td style="font-weight:700; color:#cbd5e1;">${val}</td>`;
+    };
+
+    const lowRoundBadge = p.hasLowRound 
+      ? `<span style="color:#fef08a; font-size:0.65rem; margin-left:6px; font-weight:800; background:rgba(254, 240, 138, 0.15); padding:2px 5px; border-radius:4px; border:1px solid rgba(254, 240, 138, 0.3);" title="Low Round (+20 Pts)">⚡ LOW RD</span>` 
+      : '';
+
     return `<tr>
-  <td style="font-weight:800; color:#cbd5e1;">${hasPlayed ? (idx + 1) : '-'}</td>
-  <td class="player-leaderboard-name" onclick="openPlayerProfile('${p.name}')">${p.name}</td>
-  <td style="font-weight:700; color:#cbd5e1;">${p.roundTotals.r1}</td>
-  <td style="font-weight:700; color:#cbd5e1;">${p.roundTotals.r2}</td>
-  <td style="font-weight:700; color:#cbd5e1;">${p.roundTotals.r3}</td>
-  <td style="font-weight:700; color:#cbd5e1;">${p.roundTotals.r4}</td>
-  <td style="font-weight:800;">${p.completedHoles > 0 ? p.grandTotal : '-'}</td>
-  <td style="font-weight:800; color:${relColor};">${p.completedHoles > 0 ? p.relToParStr : '-'}</td>
-  <td style="font-weight:800; color:#38bdf8;">${p.weekPts > 0 ? `+${p.weekPts}` : '-'}</td>
-  <td style="font-weight:800; color:#fef08a;">${p.totalPts}</td>
-</tr>`;
+      <td style="font-weight:800; color:#cbd5e1;">${hasPlayed ? (idx + 1) : '-'}</td>
+      <td class="player-leaderboard-name" onclick="openPlayerProfile('${p.name}')">${p.name}${lowRoundBadge}</td>
+      ${formatRdCell(p.roundTotals.r1)}
+      ${formatRdCell(p.roundTotals.r2)}
+      ${formatRdCell(p.roundTotals.r3)}
+      ${formatRdCell(p.roundTotals.r4)}
+      <td style="font-weight:800;">${p.completedHoles > 0 ? p.grandTotal : '-'}</td>
+      <td style="font-weight:800; color:${relColor};">${p.completedHoles > 0 ? p.relToParStr : '-'}</td>
+      <td style="font-weight:800; color:#38bdf8;">${p.weekPts > 0 ? `+${p.weekPts}` : '-'}</td>
+      <td style="font-weight:800; color:#fef08a;">${p.totalPts}</td>
+    </tr>`;
   }).join('');
 }
 
@@ -1134,19 +1215,66 @@ function renderHistory() {
   }
 
   const medalMap = ['🥇', '🥈', '🥉'];
+  const pointDistribution = [100, 60, 40, 25, 15, 10, 8, 6, 4, 2];
+  const cutBonusMap = {
+    'cc-a': 20, 'cc-b': 18, 'cc-c': 16, 'cc-d': 14, 'cc-e': 12,
+    'cc-f': 10, 'cc-g': 8,  'cc-h': 6,  'cc-i': 4,  'cc-j': 2
+  };
 
   container.innerHTML = window.leagueHistory.map((event, eventIdx) => {
+    let eventLowRound = Infinity;
+    if (event.rankings) {
+      event.rankings.forEach(entry => {
+        if (entry.holeScores && entry.holeScores.length > 0) {
+          for (let r = 0; r < 4; r++) {
+            const rHoles = entry.holeScores.slice(r * 18, (r + 1) * 18);
+            if (rHoles.length === 18 && rHoles.every(h => !isNaN(parseInt(h.score)) && parseInt(h.score) > 0)) {
+              const rdTotal = rHoles.reduce((acc, h) => acc + parseInt(h.score), 0);
+              if (rdTotal < eventLowRound) eventLowRound = rdTotal;
+            }
+          }
+        }
+      });
+    }
+
+    let pointsAppliedCount = 0;
+
     const rowsHtml = event.rankings.map((r, rIdx) => {
       const isCut = r.status === 'MC';
-      // Do NOT award medals (🥇, 🥈, 🥉) if the player missed the cut
       const medal = isCut ? '•' : (medalMap[rIdx] || '•');
       const cutBadge = isCut ? '<span style="color:#f87171; font-size:0.7rem; font-weight:700; margin-left:4px;">[CUT]</span>' : '';
 
+      const globalPlayer = window.players?.find(p => p.name === r.name);
+      const tagKey = getPlayerTagKey(r) || (globalPlayer ? getPlayerTagKey(globalPlayer) : '');
+
+      let holdsLowRound = false;
+      if (eventLowRound !== Infinity && r.holeScores && r.holeScores.length > 0) {
+        for (let rd = 0; rd < 4; rd++) {
+          const rHoles = r.holeScores.slice(rd * 18, (rd + 1) * 18);
+          if (rHoles.length === 18 && rHoles.every(h => !isNaN(parseInt(h.score)) && parseInt(h.score) > 0)) {
+            if (rHoles.reduce((acc, h) => acc + parseInt(h.score), 0) === eventLowRound) {
+              holdsLowRound = true;
+            }
+          }
+        }
+      }
+
+      const lowRoundBonus = holdsLowRound ? 20 : 0;
+      let pts = 0;
+
+      if (!isCut) {
+        const posPts = pointDistribution[pointsAppliedCount] || 0;
+        pointsAppliedCount++;
+
+        const madeCutBonus = cutBonusMap[tagKey] || 0;
+        pts = posPts + madeCutBonus + lowRoundBonus;
+      } else {
+        pts = lowRoundBonus;
+      }
+
       return `
         <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); height: 36px;">
-          <td style="width: 32px; text-align: center; padding: 6px 0 6px 10px; font-size: 0.9rem;">
-            ${medal}
-          </td>
+          <td style="width: 32px; text-align: center; padding: 6px 0 6px 10px; font-size: 0.9rem;">${medal}</td>
           <td style="text-align: left; padding: 6px 10px; white-space: nowrap;">
             <span style="font-weight:700; color:#f8fafc;">${r.name}</span>
             ${cutBadge}
@@ -1158,27 +1286,25 @@ function renderHistory() {
             </span>
           </td>
           <td style="width: 90px; text-align: right; padding: 6px 14px 6px 0; font-weight:800; color:#fef08a; white-space:nowrap;">
-            +${r.pointsAllocated} PTS
+            +${pts} PTS
           </td>
         </tr>
       `;
     }).join('');
 
     return `
-  <div class="archive-card" style="margin-bottom:12px; background:#1e293b; border-radius:6px; overflow:hidden;">
-    <div class="archive-header" onclick="toggleArchive(${eventIdx})" style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:#334155; cursor:pointer;">
-      <span style="font-weight:800; color:#fff; font-size:0.9rem;">${event.title}</span>
-      <span style="font-weight:700; color:#cbd5e1; font-size:0.75rem; margin-left:auto;">VIEW ▼</span>
-    </div>
-    <div id="archive-body-${eventIdx}" class="archive-body" style="display:none; padding:4px 0;">
-      <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
-        <tbody>
-          ${rowsHtml}
-        </tbody>
-      </table>
-    </div>
-  </div>
-`;
+      <div class="archive-card" style="margin-bottom:12px; background:#1e293b; border-radius:6px; overflow:hidden;">
+        <div class="archive-header" onclick="toggleArchive(${eventIdx})" style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:#334155; cursor:pointer;">
+          <span style="font-weight:800; color:#fff; font-size:0.9rem;">${event.title}</span>
+          <span style="font-weight:700; color:#cbd5e1; font-size:0.75rem; margin-left:auto;">VIEW ▼</span>
+        </div>
+        <div id="archive-body-${eventIdx}" class="archive-body" style="display:none; padding:4px 0;">
+          <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
   }).join('');
 }
 
@@ -1509,6 +1635,7 @@ function endEvent() {
 }
 
 function openPlayerProfile(playerName) {
+recalculateSeasonPoints();
   const modal = document.getElementById('player-profile-modal');
   if (!modal) return;
 
@@ -1554,23 +1681,29 @@ function openPlayerProfile(playerName) {
     }
   });
 
-  // Step B: Build history rows
+  // Step B: Process archived history for stats & table rows
   if (window.leagueHistory && window.leagueHistory.length > 0) {
     window.leagueHistory.forEach(event => {
       if (!event.rankings) return;
+
+      const madeCutRankings = event.rankings.filter(r => r.status !== 'MC');
       const idx = event.rankings.findIndex(r => r.name === playerName);
+
       if (idx !== -1) {
         const entry = event.rankings[idx];
         totalEvents++;
 
         if (entry.status === 'MC') {
           mcCount++;
-        } else if (entry.pointsAllocated > 0) {
-          if (idx === 0) wins++;
-          else if (idx === 1) runnerUp++;
-          else if (idx === 2) third++;
+        } else {
+          // Calculate finish position index among players who made the cut
+          const cutIdx = madeCutRankings.findIndex(r => r.name === playerName);
+          if (cutIdx === 0) wins++;
+          else if (cutIdx === 1) runnerUp++;
+          else if (cutIdx === 2) third++;
         }
 
+        // Eagle / Birdie / Bogey stat collection
         let rTotals = ['-', '-', '-', '-'];
         if (entry.holeScores && entry.holeScores.length > 0) {
           entry.holeScores.forEach(h => {
@@ -1618,7 +1751,7 @@ function openPlayerProfile(playerName) {
     });
   }
 
-  // Process current active week row inside modal history
+  // Step C: Process current active week row
   const parInputs = document.querySelectorAll('.par-input');
   let currentRounds = ['-', '-', '-', '-'];
   let currentGrandTotal = 0;
@@ -1675,10 +1808,10 @@ function openPlayerProfile(playerName) {
     historyRowsHtml = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#94a3b8;">No event history available.</td></tr>`;
   }
 
-  // Step C: Calculate Made Cut Percentage
+  // Step D: Modal Output Calculations
   const madeCuts = totalEvents - mcCount;
   const cutPct = totalEvents > 0 ? Math.round((madeCuts / totalEvents) * 100) : 0;
-
+  
   const bankedPts = window.seasonPoints?.[player.name] || 0;
   const weekPts = player.provisionalPoints || 0;
 
@@ -1687,18 +1820,14 @@ function openPlayerProfile(playerName) {
   document.getElementById('modal-pts').innerText = `${bankedPts + weekPts} PTS`;
   document.getElementById('modal-events').innerText = totalEvents;
   document.getElementById('modal-podiums').innerText = `${wins}W / ${wins + runnerUp + third}P`;
-
-  
-  // Displays: "1 (75%)" or change to `${mcCount} (${cutPct}% MADE)` if you prefer extra text
   document.getElementById('modal-mc').innerText = `${mcCount} (${cutPct}%)`;
-
   document.getElementById('modal-eagles').innerText = eagles;
   document.getElementById('modal-birdies').innerText = birdies;
   document.getElementById('modal-bogies').innerText = bogies;
   document.getElementById('modal-history-body').innerHTML = historyRowsHtml;
 
   modal.style.display = 'flex';
-  }
+}
 
 function closePlayerProfile() {
   const modal = document.getElementById('player-profile-modal');
