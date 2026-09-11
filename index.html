@@ -44,14 +44,18 @@
 	  font-size: 1.1rem;
 	  text-transform: uppercase;
 	  outline: none;
-	  padding: 6px 12px;
 
+	  /* Height & Spacing adjustments for Mobile 2-line rendering */
+	  padding: 8px 12px;        /* Increased top/bottom padding for breathing room */
+	  line-height: 1.4;         /* Prevents line overlap on mobile */
+	  min-height: 2.6rem;       /* Fits single line comfortably */
+	  max-height: 4.8rem;       /* Caps max height cleanly at 2 lines */
+	  
 	  /* Multiline & Auto-wrap styling */
-	  resize: none;             /* Disables manual resize handle */
-	  overflow: hidden;         /* Hides scrollbars */
-	  white-space: pre-wrap;    /* Wraps long text onto new lines */
-	  word-wrap: break-word;    /* Prevents extra-long words from overflowing */
-	  line-height: 1.3;
+	  resize: none;
+	  overflow: hidden;
+	  white-space: pre-wrap;
+	  word-wrap: break-word;
 	}
 
     #capture-area { padding: 8px; border-radius: 12px; border: 1px solid var(--glass-border); background: rgba(51, 65, 85, 0.5); }
