@@ -1685,7 +1685,8 @@ function endEvent() {
 }
 
 function openPlayerProfile(playerName) {
-recalculateSeasonPoints();
+  recalculateSeasonPoints();
+
   const modal = document.getElementById('player-profile-modal');
   if (!modal) return;
 
@@ -1693,10 +1694,10 @@ recalculateSeasonPoints();
   if (!player) return;
 
   let totalEvents = 0, wins = 0, runnerUp = 0, third = 0, mcCount = 0;
-  let eagles = 0, birdies = 0, bogies = 0;
+  // Initialize new rare-score counters
+  let hione = 0, albatross = 0, eagles = 0, birdies = 0, bogies = 0;
   let historyRowsHtml = '';
 
-  // Step A: Determine player's single lowest round score across all history + active week
   let careerLowRound = Infinity;
 
   const updateLowRoundCheck = (scoreVal) => {
@@ -1731,7 +1732,28 @@ recalculateSeasonPoints();
     }
   });
 
-  // Step B: Process archived history for stats & table rows
+// Helper function to track specific hole scores
+  const trackHoleStats = (score, par) => {
+    if (isNaN(score) || score <= 0) return;
+    const diff = score - par;
+
+    // 1. Hole-in-One takes absolute priority
+    if (score === 1) {
+      hione++;
+    } 
+    // 2. Relative-to-par scoring (skips HiO)
+    else if (diff === -3) {
+      albatross++;
+    } else if (diff === -2) {
+      eagles++;
+    } else if (diff === -1) {
+      birdies++;
+    } else if (diff >= 1) { // Captures bogeys, doubles, triples, and higher
+      bogies++;
+    }
+  };
+
+  // Process archived history for stats & table rows
   if (window.leagueHistory && window.leagueHistory.length > 0) {
     window.leagueHistory.forEach(event => {
       if (!event.rankings) return;
@@ -1746,25 +1768,18 @@ recalculateSeasonPoints();
         if (entry.status === 'MC') {
           mcCount++;
         } else {
-          // Calculate finish position index among players who made the cut
           const cutIdx = madeCutRankings.findIndex(r => r.name === playerName);
           if (cutIdx === 0) wins++;
           else if (cutIdx === 1) runnerUp++;
           else if (cutIdx === 2) third++;
         }
 
-        // Eagle / Birdie / Bogey stat collection
         let rTotals = ['-', '-', '-', '-'];
         if (entry.holeScores && entry.holeScores.length > 0) {
           entry.holeScores.forEach(h => {
             const score = parseInt(h.score);
             const par = parseInt(h.par) || 4;
-            if (!isNaN(score) && score > 0) {
-              const diff = score - par;
-              if (diff <= -2) eagles++;
-              else if (diff === -1) birdies++;
-              else if (diff === 1) bogies++;
-            }
+            trackHoleStats(score, par);
           });
 
           for (let r = 0; r < 4; r++) {
@@ -1778,7 +1793,7 @@ recalculateSeasonPoints();
         const relColor = entry.relToPar?.startsWith('-') ? '#f87171' : (entry.relToPar === 'E' ? '#4ade80' : '#cbd5e1');
 
         const formatRdCell = (val) => {
-          if (val === careerLowRound && val !== Infinity) {
+          if (parseInt(val) === careerLowRound && careerLowRound !== Infinity) {
             return `<td style="text-align:center; color:#4ade80; font-weight:900;">${val}</td>`;
           }
           return `<td style="text-align:center; color:#cbd5e1;">${val}</td>`;
@@ -1801,7 +1816,7 @@ recalculateSeasonPoints();
     });
   }
 
-  // Step C: Process current active week row
+  // Also collect stats from active week live entries
   const parInputs = document.querySelectorAll('.par-input');
   let currentRounds = ['-', '-', '-', '-'];
   let currentGrandTotal = 0;
@@ -1810,11 +1825,13 @@ recalculateSeasonPoints();
   [1, 2, 3, 4].forEach((rd, rIdx) => {
     const rdScores = getRoundScores(player, rd);
     let rdSum = 0, rdHoles = 0;
-    rdScores.forEach(s => {
+    rdScores.forEach((s, hIdx) => {
       const score = parseInt(s);
+      const par = parseInt(parInputs[hIdx]?.value) || 4;
       if (!isNaN(score) && score > 0) {
         rdSum += score;
         rdHoles++;
+        trackHoleStats(score, par);
       }
     });
     if (rdHoles === 18) {
@@ -1833,7 +1850,7 @@ recalculateSeasonPoints();
     const relColor = diff < 0 ? '#f87171' : (diff === 0 ? '#4ade80' : '#cbd5e1');
 
     const formatRdCell = (val) => {
-      if (val === careerLowRound && val !== Infinity) {
+      if (parseInt(val) === careerLowRound && careerLowRound !== Infinity) {
         return `<td style="text-align:center; color:#4ade80; font-weight:900;">${val}</td>`;
       }
       return `<td style="text-align:center; color:#cbd5e1;">${val}</td>`;
@@ -1858,7 +1875,6 @@ recalculateSeasonPoints();
     historyRowsHtml = `<tr><td colspan="7" style="text-align:center; padding:15px; color:#94a3b8;">No event history available.</td></tr>`;
   }
 
-  // Step D: Modal Output Calculations
   const madeCuts = totalEvents - mcCount;
   const cutPct = totalEvents > 0 ? Math.round((madeCuts / totalEvents) * 100) : 0;
   
@@ -1871,6 +1887,10 @@ recalculateSeasonPoints();
   document.getElementById('modal-events').innerText = totalEvents;
   document.getElementById('modal-podiums').innerText = `${wins}W / ${wins + runnerUp + third}P`;
   document.getElementById('modal-mc').innerText = `${mcCount} (${cutPct}%)`;
+
+  // Update Stat Elements
+  if (document.getElementById('modal-hione')) document.getElementById('modal-hione').innerText = hione;
+  if (document.getElementById('modal-albatross')) document.getElementById('modal-albatross').innerText = albatross;
   document.getElementById('modal-eagles').innerText = eagles;
   document.getElementById('modal-birdies').innerText = birdies;
   document.getElementById('modal-bogies').innerText = bogies;
@@ -2054,9 +2074,18 @@ function resetScores() {
 
     <!-- Scoring Breakdown -->
     <div style="display:flex; justify-content:space-around; background:#0f172a; padding:8px; border-radius:6px; text-align:center; font-size:0.75rem; margin-bottom:12px;">
+		<!-- Inside your profile modal stats row/grid -->
+		<div class="stat-box">
+		  <span class="stat-label">⛳ HiO: </span>
+		  <span id="modal-hione" class="stat-value" style="color:#ec4899;">0</span>
+		</div>
+		<div class="stat-box">
+		  <span class="stat-label">🦅 ALB: </span>
+		  <span id="modal-albatross" class="stat-value" style="color:#a855f7;">0</span>
+		</div>
       <div>🦅 Eagles: <strong id="modal-eagles" style="color:#fef08a;">0</strong></div>
       <div>🐥 Birdies: <strong id="modal-birdies" style="color:#38bdf8;">0</strong></div>
-      <div>⚠️ Bogies: <strong id="modal-bogies" style="color:#f87171;">0</strong></div>
+      <div>⚠️ Bogey +: <strong id="modal-bogies" style="color:#f87171;">0</strong></div>
     </div>
 
     <!-- Event History Table Section -->
