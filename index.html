@@ -30,33 +30,39 @@
     .brand-main { font-size: 1.1rem; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; color: #fef08a; margin: 0; }
     .sub-brand { font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; color: #cbd5e1; margin: 2px 0; }
     .venue-input {
-  border: none;
-  background: rgba(0, 0, 0, 0.15);
-  border-radius: 6px;
-  font-weight: 800;
-  text-align: center;
-  color: #f8fafc;
-  width: 100%;
-  max-width: 700px;
-  box-sizing: border-box;
-  display: block;
-  margin: 0 auto;
-  font-size: 1.1rem;
-  text-transform: uppercase;
-  outline: none;
-  padding: 8px 12px;
+		  border: none;
+		  background: rgba(0, 0, 0, 0.15) !important;
+		  border-radius: 6px;
+		  font-weight: 800;
+		  text-align: center;
+		  color: #f8fafc;
+		  width: 100%;
+		  max-width: 700px;
+		  box-sizing: border-box !important;
+		  display: block;
+		  margin: 0 auto;
+		  font-size: 1.1rem;
+		  text-transform: uppercase;
+		  outline: none;
+		  padding: 6px 12px;
 
-  /* FIX: Allow element to expand vertically */
-  height: auto !important;          /* Overrides any rigid inline height */
-  min-height: 42px;                 /* Base height for single line */
-  line-height: 1.35;                /* Clean spacing between rows */
-  
-  /* Multiline handling */
-  resize: none;
-  overflow: hidden;                 /* Removes scrollbar while growing */
-  white-space: pre-wrap;
-  word-wrap: break-word;
-}
+		  /* FORCE HEIGHT UNLOCK */
+		  height: 68px !important;            /* Directly forces room for 2 lines */
+		  min-height: 68px !important;        
+		  max-height: none !important;
+		  line-height: 1.3 !important;
+		  
+		  resize: none;
+		  overflow: visible !important;       /* Ensures text won't hide if it hits boundaries */
+		  white-space: pre-wrap;
+		  word-wrap: break-word;
+		}
+	.venue-wrapper, 
+		div:has(> #venue-name) {
+		  height: auto !important;
+		  max-height: none !important;
+		  overflow: visible !important;
+		}
 
     #capture-area { padding: 8px; border-radius: 12px; border: 1px solid var(--glass-border); background: rgba(51, 65, 85, 0.5); }
 
