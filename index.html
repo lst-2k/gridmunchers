@@ -29,7 +29,23 @@
     .header-block { text-align: center; margin-bottom: 10px; }
     .brand-main { font-size: 1.1rem; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; color: #fef08a; margin: 0; }
     .sub-brand { font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; color: #cbd5e1; margin: 2px 0; }
-    .venue-input { border: none; background: rgba(0,0,0,0.15); border-radius: 6px; font-weight: 800; text-align: center; color: #f8fafc; width: 90%; max-width: 400px; font-size: 1.1rem; text-transform: uppercase; outline: none; padding: 4px; }
+    .venue-input {
+	  border: none;
+	  background: rgba(0, 0, 0, 0.15);
+	  border-radius: 6px;
+	  font-weight: 800;
+	  text-align: center;
+	  color: #f8fafc;
+	  width: 100%;
+	  max-width: 700px; /* Expanded limit for longer course names */
+	  box-sizing: border-box; /* Prevents padding from breaking width */
+	  display: block;
+	  margin: 0 auto; /* Keeps input centered */
+	  font-size: 1.1rem;
+	  text-transform: uppercase;
+	  outline: none;
+	  padding: 6px 12px;
+	}
 
     #capture-area { padding: 8px; border-radius: 12px; border: 1px solid var(--glass-border); background: rgba(51, 65, 85, 0.5); }
 
@@ -315,7 +331,7 @@
 <div id="capture-area">
   <div class="header-block">
     <div class="brand-main">LST Grid Munchers Challenge</div>
-    <div class="sub-brand">Scorecards</div>
+	
     <input type="text" id="venue-name" class="venue-input" placeholder="ENTER VENUE" oninput="saveState()" readonly>
   </div>
 
@@ -721,8 +737,8 @@ function recalculateSeasonPoints() {
   
   const pointDistribution = [100, 60, 40, 25, 15, 10, 8, 6, 4, 2];
   const cutBonusMap = {
-    'cc-a': 20, 'cc-b': 18, 'cc-c': 16, 'cc-d': 14, 'cc-e': 12,
-    'cc-f': 10, 'cc-g': 8,  'cc-h': 6,  'cc-i': 4,  'cc-j': 2
+    'cc-a': 50, 'cc-b': 46, 'cc-c': 42, 'cc-d': 38, 'cc-e': 34,
+    'cc-f': 30, 'cc-g': 26,  'cc-h': 22,  'cc-i': 18,  'cc-j': 14, 'cc-k': 10, 'cc-l': 6,
   };
 
   if (!window.leagueHistory || window.leagueHistory.length === 0) return;
@@ -787,8 +803,8 @@ function updateIndividualLeaderboard() {
 
   const parInputs = document.querySelectorAll('.par-input');
   const cutBonusMap = {
-    'cc-a': 20, 'cc-b': 18, 'cc-c': 16, 'cc-d': 14, 'cc-e': 12,
-    'cc-f': 10, 'cc-g': 8,  'cc-h': 6,  'cc-i': 4,  'cc-j': 2
+    'cc-a': 50, 'cc-b': 46, 'cc-c': 42, 'cc-d': 38, 'cc-e': 34,
+    'cc-f': 30, 'cc-g': 26,  'cc-h': 22,  'cc-i': 18,  'cc-j': 14, 'cc-k': 10, 'cc-l': 6,
   };
   const pointDistribution = [100, 60, 40, 25, 15, 10, 8, 6, 4, 2];
 
@@ -1217,8 +1233,8 @@ function renderHistory() {
   const medalMap = ['🥇', '🥈', '🥉'];
   const pointDistribution = [100, 60, 40, 25, 15, 10, 8, 6, 4, 2];
   const cutBonusMap = {
-    'cc-a': 20, 'cc-b': 18, 'cc-c': 16, 'cc-d': 14, 'cc-e': 12,
-    'cc-f': 10, 'cc-g': 8,  'cc-h': 6,  'cc-i': 4,  'cc-j': 2
+    'cc-a': 50, 'cc-b': 46, 'cc-c': 42, 'cc-d': 38, 'cc-e': 34,
+    'cc-f': 30, 'cc-g': 26,  'cc-h': 22,  'cc-i': 18,  'cc-j': 14, 'cc-k': 10, 'cc-l': 6,
   };
 
   container.innerHTML = window.leagueHistory.map((event, eventIdx) => {
