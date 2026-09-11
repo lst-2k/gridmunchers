@@ -30,41 +30,33 @@
     .brand-main { font-size: 1.1rem; font-weight: 900; letter-spacing: 3px; text-transform: uppercase; color: #fef08a; margin: 0; }
     .sub-brand { font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; color: #cbd5e1; margin: 2px 0; }
     .venue-input {
-		  border: none;
-		  background: rgba(0, 0, 0, 0.15);
-		  border-radius: 6px;
-		  font-weight: 800;
-		  text-align: center;
-		  color: #f8fafc;
-		  
-		  /* Horizontal Constraint Fixes */
-		  width: 100% !important;
-		  max-width: 100% !important; 
-		  box-sizing: border-box !important;
-		  display: block;
-		  margin: 0 auto;
-		  
-		  /* Text Wrapping & Edge Control */
-		  white-space: pre-wrap;
-		  word-break: break-word;     /* Breaks long words if they exceed screen width */
-		  overflow-wrap: anywhere;    /* Forces hard wraps on small mobile screens */
-		  
-		  font-size: 1.1rem;
-		  text-transform: uppercase;
-		  outline: none;
-		  padding: 8px 10px;
-		  line-height: 1.4;
-		  resize: none;
-		  overflow: hidden;
-		}
+  border: none;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+  font-weight: 800;
+  text-align: center;
+  color: #f8fafc;
+  width: 100%;
+  max-width: 700px;
+  box-sizing: border-box;
+  display: block;
+  margin: 0 auto;
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  outline: none;
+  padding: 8px 12px;
 
-		/* Mobile Screen Scale Fix */
-		@media (max-width: 480px) {
-		  .venue-input {
-			font-size: 0.95rem;      /* Scaled down slightly so long names fit horizontally */
-			padding: 6px 8px;
-		  }
-		}
+  /* FIX: Allow element to expand vertically */
+  height: auto !important;          /* Overrides any rigid inline height */
+  min-height: 42px;                 /* Base height for single line */
+  line-height: 1.35;                /* Clean spacing between rows */
+  
+  /* Multiline handling */
+  resize: none;
+  overflow: hidden;                 /* Removes scrollbar while growing */
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
 
     #capture-area { padding: 8px; border-radius: 12px; border: 1px solid var(--glass-border); background: rgba(51, 65, 85, 0.5); }
 
@@ -478,6 +470,7 @@ const venueTextarea = document.getElementById('venue-name');
 
 if (venueTextarea) {
   const adjustHeight = () => {
+    // Reset height first so scrollHeight accurately measures required content room
     venueTextarea.style.height = 'auto';
     venueTextarea.style.height = venueTextarea.scrollHeight + 'px';
   };
@@ -486,18 +479,15 @@ if (venueTextarea) {
 
   venueTextarea.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
-      // Check how many lines currently exist
       const lineCount = (venueTextarea.value.match(/\n/g) || []).length + 1;
-
-      // If already on line 2, block Enter from making line 3 and unfocus
       if (lineCount >= 2) {
         e.preventDefault();
         venueTextarea.blur();
       }
-      // If on line 1, Enter will naturally create line 2!
     }
   });
 
+  // Run on initial page render
   adjustHeight();
 }
 
