@@ -87,6 +87,7 @@
     .col-name { width: 120px; min-width: 120px; }
     .col-rd { width: 32px; min-width: 32px; font-weight: 800; font-size: 0.65rem; }
     .col-total { width: 42px; min-width: 42px; background: rgba(0,0,0,0.15); }
+    .col-outin { width: 42px; min-width: 42px; background: rgba(56, 189, 248, 0.12); border-left: 2px solid #334155; border-right: 2px solid #334155; color: #7dd3fc; }
 
     /* Score Inputs */
     .score-input, .par-input { 
@@ -365,14 +366,20 @@
           <th class="col-del admin-only">DEL</th>
           <th class="col-name" style="text-align:left; padding-left:8px">Player</th>
           <th class="col-rd">RD</th>
-          <script>for(let i=1; i<=18; i++) document.write(`<th>${i}</th>`);</script>
+          <script>for(let i=1; i<=9; i++) document.write(`<th>${i}</th>`);</script>
+          <th class="col-outin">OUT</th>
+          <script>for(let i=10; i<=18; i++) document.write(`<th>${i}</th>`);</script>
+          <th class="col-outin">IN</th>
           <th class="col-total">TOT</th>
           <th class="col-total">+/-</th>
         </tr>
         <tr style="background: #1e293b;">
           <td class="admin-only"></td>
           <td colspan="2" style="text-align:right; font-weight:800; color:#cbd5e1; font-size:0.5rem; padding-right:4px">PAR</td>
-          <script>for(let i=0; i<18; i++) document.write(`<td><input type="number" class="par-input" value="4" oninput="saveState()"></td>`);</script>
+          <script>for(let i=0; i<9; i++) document.write(`<td><input type="number" class="par-input" value="4" oninput="updateCalculations()"></td>`);</script>
+          <td id="par-out" class="col-outin" style="font-weight:800;">36</td>
+          <script>for(let i=9; i<18; i++) document.write(`<td><input type="number" class="par-input" value="4" oninput="updateCalculations()"></td>`);</script>
+          <td id="par-in" class="col-outin" style="font-weight:800;">36</td>
           <td id="total-par" style="font-weight:800; background:rgba(0,0,0,0.2);">72</td>
           <td>-</td>
         </tr>
@@ -625,7 +632,11 @@ function applyState(state) {
 
 	  for(let h=0; h<18; h++) {
 		playerHtml += `<td><input type="number" class="score-input" tabindex="${tabCounter++}" data-p="${pIdx}" data-r="${rdNum}" data-h="${h}" value="${scores[h] || ''}" ${isAdmin ? '' : 'readonly'} oninput="updateCalculations()"></td>`;
+		if (h === 8) {
+		  playerHtml += `<td class="col-outin" id="out-${pIdx}-r${rdNum}">0</td>`;
+		}
 	  }
+	  playerHtml += `<td class="col-outin" id="in-${pIdx}-r${rdNum}">0</td>`;
 
 	  playerHtml += `<td style="font-weight:700" id="tot-gross-${pIdx}-r${rdNum}">0</td>
 					<td style="font-size:0.75rem !important;" id="tot-rel-${pIdx}-r${rdNum}">-</td>
@@ -635,7 +646,7 @@ function applyState(state) {
     playerHtml += `<tr class="player-summary-row">
       <td class="admin-only" style="${isAdmin ? 'display:table-cell' : 'display:none'}"></td>
       <td colspan="2" style="text-align:right; padding-right:8px; color:#fef08a;">TOTAL COMBINED</td>
-      <td colspan="18" style="text-align:left; color:#cbd5e1; font-size:0.65rem;">(All 4 Rounds)</td>
+      <td colspan="20" style="text-align:left; color:#cbd5e1; font-size:0.65rem;">(All 4 Rounds)</td>
       <td id="p-grand-gross-${pIdx}" style="color:#fef08a;">0</td>
       <td id="p-grand-rel-${pIdx}">-</td>
     </tr>`;
@@ -681,8 +692,17 @@ function getRoundScores(player, roundNum) {
 function updateCalculations(triggerSave = true) {
   const parInputs = document.querySelectorAll('.par-input');
   let totalCoursePar = 0;
-  parInputs.forEach(input => { totalCoursePar += (parseInt(input.value) || 0); });
+  let parOut = 0, parIn = 0;
+  parInputs.forEach((input, idx) => {
+    const val = parseInt(input.value) || 0;
+    totalCoursePar += val;
+    if (idx < 9) parOut += val; else parIn += val;
+  });
   document.getElementById('total-par').textContent = totalCoursePar;
+  const parOutEl = document.getElementById('par-out');
+  const parInEl = document.getElementById('par-in');
+  if (parOutEl) parOutEl.textContent = parOut;
+  if (parInEl) parInEl.textContent = parIn;
   
   window.players.forEach((p, pIdx) => {
     let grandGross = 0;
@@ -691,6 +711,7 @@ function updateCalculations(triggerSave = true) {
     [1, 2, 3, 4].forEach(rdNum => {
       let rdGross = 0;
       let playedPar = 0;
+      let rdOut = 0, rdIn = 0;
       const inputs = document.querySelectorAll(`.score-input[data-p="${pIdx}"][data-r="${rdNum}"]`);
       const currentScores = getRoundScores(p, rdNum);
 
@@ -704,6 +725,7 @@ function updateCalculations(triggerSave = true) {
         if (!isNaN(gross) && gross > 0) {
           rdGross += gross;
           playedPar += par;
+          if (hIdx < 9) rdOut += gross; else rdIn += gross;
           const diff = gross - par;
           if (diff <= -2) inp.classList.add('eagle'); 
           else if (diff === -1) inp.classList.add('birdie'); 
@@ -717,6 +739,11 @@ function updateCalculations(triggerSave = true) {
 
       document.getElementById(`tot-gross-${pIdx}-r${rdNum}`).textContent = rdGross > 0 ? rdGross : 0;
       document.getElementById(`tot-rel-${pIdx}-r${rdNum}`).textContent = rdGross > 0 ? relText : '-';
+
+      const outEl = document.getElementById(`out-${pIdx}-r${rdNum}`);
+      const inEl = document.getElementById(`in-${pIdx}-r${rdNum}`);
+      if (outEl) outEl.textContent = rdOut > 0 ? rdOut : 0;
+      if (inEl) inEl.textContent = rdIn > 0 ? rdIn : 0;
 
       grandGross += rdGross;
       grandParPlayed += playedPar;
