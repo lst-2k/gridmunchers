@@ -409,7 +409,7 @@
 		  <th style="width:8%;">R4</th>
 		  <th style="width:9%;">TOT</th>
 		  <th style="width:9%;">PAR</th>
-		  <th style="width:9%; color:#38bdf8;">WK</th>
+		  <th style="width:9%; color:#fef08a;">WK</th>
 		  <th style="width:9%; color:#fef08a;">TOT</th>
 		</tr>
 	  </thead>
@@ -450,13 +450,15 @@
     <table class="leaderboard-table" id="player-stats-leaderboard">
       <thead>
         <tr>
-          <th style="width:10%; text-align:center;">POS</th>
-          <th style="width:28%; text-align:left; padding-left:10px;">PLAYER</th>
-          <th style="width:12%;">RDS</th>
-          <th style="width:13%;">AVG</th>
-          <th style="width:13%;">BEST</th>
-          <th style="width:12%; color:#fef08a;">EAG</th>
-          <th style="width:12%; color:#38bdf8;">BIR</th>
+          <th style="width:8%; text-align:center;">POS</th>
+          <th style="width:22%; text-align:left; padding-left:10px;">PLAYER</th>
+          <th style="width:10%;">RDS</th>
+          <th style="width:11%;">AVG</th>
+          <th style="width:11%;">BEST</th>
+          <th style="width:9%; color:#fef08a;">HiO</th>
+          <th style="width:9%; color:#fef08a;">ALBY</th>
+          <th style="width:10%; color:#fef08a;">EAG</th>
+          <th style="width:10%; color:#fef08a;">BIR</th>
         </tr>
       </thead>
       <tbody id="player-stats-body"></tbody>
@@ -1176,6 +1178,19 @@ function updatePlayerStats() {
     let totalBirdies = 0;
     let totalEagles = 0;
     let totalBogies = 0;
+    let totalAlbatross = 0;
+    let totalHio = 0;
+
+    // Helper to categorize a hole result the same way the player profile modal does
+    const trackHole = (score, par) => {
+      if (isNaN(score) || score <= 0) return;
+      const diff = score - par;
+      if (score === 1) { totalHio++; }
+      else if (diff === -3) { totalAlbatross++; }
+      else if (diff === -2) { totalEagles++; }
+      else if (diff === -1) { totalBirdies++; }
+      else if (diff >= 1) { totalBogies++; }
+    };
 
     // 1. PULL HISTORICAL STATS FROM ARCHIVED WEEKS (window.leagueHistory)
     if (window.leagueHistory && window.leagueHistory.length > 0) {
@@ -1193,10 +1208,7 @@ function updatePlayerStats() {
                 const par = parseInt(h.par) || 4;
                 if (!isNaN(score) && score > 0) {
                   rdSum += score;
-                  const diff = score - par;
-                  if (diff <= -2) totalEagles++;
-                  else if (diff === -1) totalBirdies++;
-                  else if (diff === 1) totalBogies++;
+                  trackHole(score, par);
                 }
               });
               completedRounds++;
@@ -1221,11 +1233,7 @@ function updatePlayerStats() {
         if (!isNaN(score) && score > 0) {
           rdSum += score;
           rdHoles++;
-
-          const diff = score - par;
-          if (diff <= -2) totalEagles++;
-          else if (diff === -1) totalBirdies++;
-          else if (diff === 1) totalBogies++;
+          trackHole(score, par);
         }
       });
 
@@ -1246,7 +1254,9 @@ function updatePlayerStats() {
       best: bestStr,
       eagles: totalEagles,
       birdies: totalBirdies,
-      bogies: totalBogies
+      bogies: totalBogies,
+      albatross: totalAlbatross,
+      hio: totalHio
     };
   });
 
@@ -1269,6 +1279,8 @@ function updatePlayerStats() {
       <td style="font-weight:700; color:#cbd5e1; text-align:center;">${p.rounds}</td>
       <td style="font-weight:700; color:#cbd5e1; text-align:center;">${p.avg}</td>
       <td style="font-weight:700; color:#4ade80; text-align:center;">${p.best}</td>
+      <td style="font-weight:700; color:#ec4899; text-align:center;">${p.hio}</td>
+      <td style="font-weight:700; color:#a855f7; text-align:center;">${p.albatross}</td>
       <td style="font-weight:700; color:#fef08a; text-align:center;">${p.eagles}</td>
       <td style="font-weight:700; color:#38bdf8; text-align:center;">${p.birdies}</td>
     </tr>
