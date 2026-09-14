@@ -409,7 +409,7 @@
 		  <th style="width:8%;">R4</th>
 		  <th style="width:9%;">TOT</th>
 		  <th style="width:9%;">PAR</th>
-		  <th style="width:9%; color:#fef08a;">WK</th>
+		  <th style="width:9%; color:#38bdf8;">WK</th>
 		  <th style="width:9%; color:#fef08a;">TOT</th>
 		</tr>
 	  </thead>
@@ -455,10 +455,10 @@
           <th style="width:10%;">RDS</th>
           <th style="width:11%;">AVG</th>
           <th style="width:11%;">BEST</th>
-          <th style="width:9%; color:#fef08a;">HiO</th>
-          <th style="width:9%; color:#fef08a;">ALB</th>
+          <th style="width:9%; color:#ec4899;">HiO</th>
+          <th style="width:9%; color:#a855f7;">ALBY</th>
           <th style="width:10%; color:#fef08a;">EAG</th>
-          <th style="width:10%; color:#fef08a;">BIR</th>
+          <th style="width:10%; color:#38bdf8;">BIR</th>
         </tr>
       </thead>
       <tbody id="player-stats-body"></tbody>
@@ -534,6 +534,10 @@ function applyState(state) {
   // 1. Save currently focused input position
   const activeEl = document.activeElement;
   let activeData = null;
+  let activeParIndex = null;
+  const scorecardEl = document.getElementById('scorecard-details');
+  const wasEditingInsideScorecard = !!(activeEl && scorecardEl && scorecardEl.contains(activeEl));
+
   if (activeEl && activeEl.classList.contains('score-input')) {
     activeData = {
       p: activeEl.getAttribute('data-p'),
@@ -541,6 +545,8 @@ function applyState(state) {
       h: activeEl.getAttribute('data-h')
     };
 	updateFinishesLeaderboard();
+  } else if (activeEl && activeEl.classList.contains('par-input')) {
+    activeParIndex = Array.from(document.querySelectorAll('.par-input')).indexOf(activeEl);
   }
 
   // 2. Load state
@@ -564,15 +570,22 @@ function applyState(state) {
   renderHistory();
   
   // 4. Auto Collapse/Expand Scorecards based on active scores
-  autoToggleScorecards();
+  // (unless the user is actively editing inside it right now - keep it open through their edit)
+  autoToggleScorecards(wasEditingInsideScorecard);
 
-  // 5. Restore focus back to the score input box
+  // 5. Restore focus back to the score/par input box
   if (activeData) {
     const targetInp = document.querySelector(`.score-input[data-p="${activeData.p}"][data-r="${activeData.r}"][data-h="${activeData.h}"]`);
     if (targetInp) {
       targetInp.focus();
       // Select text inside for quick overwriting/editing
       targetInp.select(); 
+    }
+  } else if (activeParIndex !== null && activeParIndex >= 0) {
+    const targetPar = document.querySelectorAll('.par-input')[activeParIndex];
+    if (targetPar) {
+      targetPar.focus();
+      targetPar.select();
     }
   }
 }
@@ -659,18 +672,23 @@ function applyState(state) {
   updateCalculations(false);
 }
 
-function autoToggleScorecards() {
+function autoToggleScorecards(keepOpen = false) {
   const detailsEl = document.getElementById('scorecard-details');
   const iconEl = document.getElementById('scorecard-toggle-icon');
   if (!detailsEl) return;
 
-  // Check if any player has scores entered for Round 1
-  const hasActiveScores = window.players?.some(p => 
-    p.r1Scores?.some(s => s !== '' && !isNaN(parseInt(s)))
-  );
-
-  // Default open if active scores exist, otherwise collapse
-  detailsEl.open = hasActiveScores;
+  if (keepOpen) {
+    // User is actively editing inside the scorecard (e.g. entering par figures) -
+    // don't yank it closed underneath them mid-edit.
+    detailsEl.open = true;
+  } else {
+    // Check if any player has scores entered for Round 1
+    const hasActiveScores = window.players?.some(p => 
+      p.r1Scores?.some(s => s !== '' && !isNaN(parseInt(s)))
+    );
+    // Default open if active scores exist, otherwise collapse
+    detailsEl.open = hasActiveScores;
+  }
   
   if (iconEl) {
     iconEl.textContent = detailsEl.open ? 'CLICK TO COLLAPSE ▲' : 'CLICK TO EXPAND ▼';
