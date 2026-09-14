@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <title>LST Grid Munchers</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
     :root {
       --primary-dark: #334155;
@@ -88,6 +89,10 @@
     .col-rd { width: 32px; min-width: 32px; font-weight: 800; font-size: 0.65rem; }
     .col-total { width: 42px; min-width: 42px; background: rgba(0,0,0,0.15); }
     .col-outin { width: 42px; min-width: 42px; background: #1e3a4c; border-left: 2px solid #334155; border-right: 2px solid #334155; color: #7dd3fc; }
+    .platform-toggle-btn.active { border-color: #38bdf8 !important; background: rgba(56,189,248,0.15) !important; color: #38bdf8 !important; }
+    .platform-icon-xbox { color: #107c10; }
+    .platform-icon-playstation { color: #0070d1; }
+    .platform-icon-steam { color: #66c0f4; }
 
     /* Score Inputs */
     .score-input, .par-input { 
@@ -335,7 +340,7 @@
 </div>
 
 <div id="controls">
-  <button class="admin-only" onclick="addPlayer()">+ Player</button>
+  <button class="admin-only" onclick="openAddPlayerModal()">+ Player</button>
   <button class="admin-only import-btn" onclick="document.getElementById('file-import').click()">📂 Import</button>
   <button class="admin-only end-event-btn" onclick="endEvent()">🏆 Finalize Week</button>
   <button class="admin-only" style="background:#0284c7; color:#fff; font-weight:800; padding:6px 12px; border-radius:4px; border:none; cursor:pointer; margin-right:6px;" onclick="updateProvisionalLeaderboard()">🔄 Update Leaderboard</button>
@@ -639,6 +644,7 @@ function applyState(state) {
 			  </a>
 			  ${isAdmin ? `
 				<button class="edit-link-trigger" onclick="editPlayerLink(${pIdx})" title="Edit Player Link">⚙️ Link</button>
+				<button class="edit-link-trigger" onclick="openEditPlatformsModal(${pIdx})" title="Edit Gaming Platforms">🎮 Platforms</button>
 			  ` : ''}
 			</div>
 		  ` : ''}
@@ -1435,19 +1441,60 @@ function toggleArchive(index) {
 window.toggleArchive = toggleArchive;
 
 
-function addPlayer() {
-  const name = prompt("Player Name:");
-  if (name) {
-    window.players.push({ 
-      name, 
-      r1Scores: Array(18).fill(''), 
+window.platformModalEditIdx = null; // null = adding a new player, otherwise the index being edited
+
+function openAddPlayerModal() {
+  window.platformModalEditIdx = null;
+  document.getElementById('add-player-modal-title').textContent = 'Add Player';
+  document.getElementById('add-player-name-row').style.display = 'block';
+  document.getElementById('add-player-name-input').value = '';
+  document.querySelectorAll('.platform-toggle-btn').forEach(btn => btn.classList.remove('active'));
+  document.getElementById('add-player-modal').style.display = 'flex';
+}
+
+function openEditPlatformsModal(pIdx) {
+  const player = window.players[pIdx];
+  if (!player) return;
+  window.platformModalEditIdx = pIdx;
+  document.getElementById('add-player-modal-title').textContent = `${player.name} — Platforms`;
+  document.getElementById('add-player-name-row').style.display = 'none';
+  const currentPlatforms = player.platforms || [];
+  document.querySelectorAll('.platform-toggle-btn').forEach(btn => {
+    btn.classList.toggle('active', currentPlatforms.includes(btn.getAttribute('data-platform')));
+  });
+  document.getElementById('add-player-modal').style.display = 'flex';
+}
+
+function togglePlatformChoice(btn) {
+  btn.classList.toggle('active');
+}
+
+function closeAddPlayerModal() {
+  document.getElementById('add-player-modal').style.display = 'none';
+}
+
+function saveAddPlayerModal() {
+  const selectedPlatforms = Array.from(document.querySelectorAll('.platform-toggle-btn.active'))
+    .map(b => b.getAttribute('data-platform'));
+
+  if (window.platformModalEditIdx === null) {
+    const name = document.getElementById('add-player-name-input').value.trim();
+    if (!name) { alert('Please enter a player name.'); return; }
+    window.players.push({
+      name,
+      platforms: selectedPlatforms,
+      r1Scores: Array(18).fill(''),
       r2Scores: Array(18).fill(''),
       r3Scores: Array(18).fill(''),
       r4Scores: Array(18).fill(''),
     });
-    renderPlayers();
-    if (typeof window.saveState === 'function') window.saveState();
+  } else {
+    window.players[window.platformModalEditIdx].platforms = selectedPlatforms;
   }
+
+  closeAddPlayerModal();
+  renderPlayers();
+  if (typeof window.saveState === 'function') window.saveState();
 }
 
 function deletePlayer(idx) {
@@ -1948,6 +1995,16 @@ function openPlayerProfile(playerName) {
 
   document.getElementById('modal-player-name').innerText = player.name;
   document.getElementById('modal-player-tag').innerText = player.linkLabel || player.tag || 'TOUR MEMBER';
+
+  const platformIcons = {
+    xbox: '<i class="fa-brands fa-xbox platform-icon-xbox" style="font-size:1.3rem;" title="Xbox"></i>',
+    playstation: '<i class="fa-brands fa-playstation platform-icon-playstation" style="font-size:1.3rem;" title="PlayStation"></i>',
+    steam: '<i class="fa-brands fa-steam platform-icon-steam" style="font-size:1.3rem;" title="Steam"></i>'
+  };
+  const playerPlatforms = player.platforms || [];
+  document.getElementById('modal-player-platforms').innerHTML = playerPlatforms
+    .map(pf => platformIcons[pf] || '')
+    .join('');
   document.getElementById('modal-pts').innerText = `${bankedPts + weekPts} PTS`;
   document.getElementById('modal-events').innerText = totalEvents;
   document.getElementById('modal-podiums').innerText = `${wins}W / ${wins + runnerUp + third}P`;
@@ -2107,6 +2164,41 @@ function resetScores() {
     });
   };
 </script>
+<!-- Add / Edit Player Modal -->
+<div id="add-player-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.85); z-index:9999; justify-content:center; align-items:center; backdrop-filter:blur(4px);" onclick="if(event.target === this) closeAddPlayerModal();">
+  <div style="background:#1e293b; border:1px solid #334155; border-radius:12px; width:90%; max-width:380px; padding:20px; color:#f8fafc; position:relative; box-shadow:0 20px 25px -5px rgba(0,0,0,0.5);">
+    <button onclick="closeAddPlayerModal()" style="position:absolute; top:12px; right:12px; background:none; border:none; color:#94a3b8; font-size:1.2rem; cursor:pointer;">✖</button>
+    <h3 id="add-player-modal-title" style="margin:0 0 16px 0; color:#fef08a; font-size:1.1rem;">Add Player</h3>
+
+    <div id="add-player-name-row" style="margin-bottom:16px;">
+      <label style="display:block; font-size:0.7rem; color:#94a3b8; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.05em;">Player Name</label>
+      <input type="text" id="add-player-name-input" placeholder="Enter name..." style="width:100%; box-sizing:border-box; padding:8px 10px; background:#0f172a; border:1px solid #334155; border-radius:6px; color:#f8fafc; font-size:0.95rem;">
+    </div>
+
+    <div style="margin-bottom:20px;">
+      <label style="display:block; font-size:0.7rem; color:#94a3b8; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.05em;">Gaming Platform(s)</label>
+      <div style="display:flex; gap:10px;">
+        <button type="button" class="platform-toggle-btn" data-platform="xbox" onclick="togglePlatformChoice(this)" style="flex:1; padding:12px 4px; background:#0f172a; border:2px solid #334155; border-radius:8px; color:#94a3b8; cursor:pointer; text-align:center;">
+          <i class="fa-brands fa-xbox" style="font-size:1.4rem; display:block; margin-bottom:4px;"></i>
+          <span style="font-size:0.65rem; font-weight:700;">XBOX</span>
+        </button>
+        <button type="button" class="platform-toggle-btn" data-platform="playstation" onclick="togglePlatformChoice(this)" style="flex:1; padding:12px 4px; background:#0f172a; border:2px solid #334155; border-radius:8px; color:#94a3b8; cursor:pointer; text-align:center;">
+          <i class="fa-brands fa-playstation" style="font-size:1.4rem; display:block; margin-bottom:4px;"></i>
+          <span style="font-size:0.65rem; font-weight:700;">PLAYSTATION</span>
+        </button>
+        <button type="button" class="platform-toggle-btn" data-platform="steam" onclick="togglePlatformChoice(this)" style="flex:1; padding:12px 4px; background:#0f172a; border:2px solid #334155; border-radius:8px; color:#94a3b8; cursor:pointer; text-align:center;">
+          <i class="fa-brands fa-steam" style="font-size:1.4rem; display:block; margin-bottom:4px;"></i>
+          <span style="font-size:0.65rem; font-weight:700;">STEAM</span>
+        </button>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:8px;">
+      <button onclick="closeAddPlayerModal()" style="flex:1; padding:10px; background:#334155; border:none; border-radius:6px; color:#f8fafc; font-weight:700; cursor:pointer;">Cancel</button>
+      <button onclick="saveAddPlayerModal()" style="flex:1; padding:10px; background:#38bdf8; border:none; border-radius:6px; color:#0f172a; font-weight:700; cursor:pointer;">Save</button>
+    </div>
+  </div>
+</div>
 <!-- Player Profile Modal -->
 <div id="player-profile-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.85); z-index:9999; justify-content:center; align-items:center; backdrop-filter:blur(4px);" onclick="if(event.target === this) closePlayerProfile();">
   <div style="background:#1e293b; border:1px solid #334155; border-radius:12px; width:90%; max-width:540px; max-height:90vh; display:flex; flex-direction:column; padding:20px; color:#f8fafc; position:relative; box-shadow:0 20px 25px -5px rgba(0,0,0,0.5);">
@@ -2115,6 +2207,7 @@ function resetScores() {
     <div id="modal-profile-header" style="text-align:center; padding-bottom:12px; border-bottom:1px solid #334155;">
       <h2 id="modal-player-name" style="margin:0; color:#fef08a; font-size:1.4rem;">-</h2>
       <span id="modal-player-tag" style="color:#38bdf8; font-size:0.8rem; font-weight:700;">-</span>
+      <div id="modal-player-platforms" style="margin-top:8px; display:flex; justify-content:center; gap:12px;"></div>
     </div>
 
     <!-- Stats Grid -->
