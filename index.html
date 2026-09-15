@@ -909,6 +909,7 @@ function updateIndividualLeaderboard() {
     let grandTotal = 0;
     let relToParNum = 0;
     let completedHoles = 0;
+    let r3HolesPlayed = 0;
     let roundTotals = { r1: '-', r2: '-', r3: '-', r4: '-' };
 
     [1, 2, 3, 4].forEach(rd => {
@@ -928,6 +929,8 @@ function updateIndividualLeaderboard() {
           rdHoles++;
         }
       });
+
+      if (rd === 3) r3HolesPlayed = rdHoles;
 
       if (rdHoles === 18) {
         roundTotals[`r${rd}`] = rdSum;
@@ -949,7 +952,9 @@ function updateIndividualLeaderboard() {
       relToParNum: relToParNum,
       relToParStr: relToParStr,
       completedHoles: completedHoles,
-      madeCut: completedHoles === 72,
+      // Made cut once all 72 holes are in, or as soon as Round 3 scoring has begun
+      // (starting R3 is treated as confirmation the player made the cut)
+      madeCut: completedHoles === 72 || r3HolesPlayed > 0,
       bankedPts: window.seasonPoints?.[p.name] || 0
     };
   });
@@ -1530,8 +1535,10 @@ function updateProvisionalLeaderboard() {
     let grandTotal = 0;
     let relToParNum = 0;
     let completedHoles = 0;
+    let r3HolesPlayed = 0;
 
     [1, 2, 3, 4].forEach(rd => {
+      let rdHoles = 0;
       getRoundScores(p, rd).forEach((s, hIdx) => {
         const score = parseInt(s);
         const par = parseInt(parInputs[hIdx]?.value) || 4;
@@ -1539,8 +1546,10 @@ function updateProvisionalLeaderboard() {
           grandTotal += score;
           relToParNum += (score - par);
           completedHoles++;
+          rdHoles++;
         }
       });
+      if (rd === 3) r3HolesPlayed = rdHoles;
     });
 
     const tagKey = getPlayerTag(p);
@@ -1551,7 +1560,8 @@ function updateProvisionalLeaderboard() {
       grandTotal: grandTotal,
       relToParNum: relToParNum,
       completedHoles: completedHoles,
-      madeCut: completedHoles === 72
+      // Made cut once all 72 holes are in, or as soon as Round 3 scoring has begun
+      madeCut: completedHoles === 72 || r3HolesPlayed > 0
     };
   })
   .filter(p => p.completedHoles > 0)
