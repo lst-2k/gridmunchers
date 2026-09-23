@@ -498,12 +498,12 @@
     <table class="leaderboard-table" id="console-battle-leaderboard">
       <thead>
         <tr>
-          <th style="width:26%; text-align:left; padding-left:10px;">TEAM</th>
-          <th style="width:12%;">PLAYERS</th>
-          <th style="width:16%;">STROKES</th>
-          <th style="width:16%;">VS PAR</th>
-          <th style="width:15%;">AVG</th>
-          <th style="width:15%;">WINS</th>
+          <th style="width:24%; text-align:left; padding-left:10px;">TEAM</th>
+          <th style="width:15%;">STROKES</th>
+          <th style="width:15%;">PAR</th>
+          <th style="width:16%;">WK AVG</th>
+          <th style="width:16%;">SSN AVG</th>
+          <th style="width:14%;">WINS</th>
         </tr>
       </thead>
       <tbody id="console-battle-body"></tbody>
@@ -1262,22 +1262,27 @@ function updateConsoleBattle() {
   const rowHtml = (key, leading) => {
     const t = teams[key];
     const seasonAvg = t.seasonRounds > 0 ? (t.seasonStrokes / t.seasonRounds).toFixed(1) : '-';
+    const weekAvg = t.weekRounds > 0 ? (t.weekStrokes / t.weekRounds).toFixed(1) : '-';
     return `
       <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); ${leading ? 'background:rgba(74,222,128,0.08);' : ''}">
         <td style="text-align:left; padding-left:10px; font-weight:800; color:#f8fafc;">
           ${t.icon} ${t.label} ${leading ? '👑' : ''}
         </td>
-        <td style="text-align:center; color:#cbd5e1;">${t.players}</td>
         <td style="text-align:center; font-weight:700; color:#fff;">${t.seasonRounds > 0 ? t.seasonStrokes : '-'}</td>
         <td style="text-align:center; font-weight:800; color:${t.seasonRounds > 0 ? relColor(t.seasonRelToPar) : '#64748b'};">${t.seasonRounds > 0 ? relStr(t.seasonRelToPar) : '-'}</td>
+        <td style="text-align:center; font-weight:700; color:#7dd3fc;">${weekAvg}</td>
         <td style="text-align:center; font-weight:700; color:#fff;">${seasonAvg}</td>
         <td style="text-align:center; font-weight:800; color:#fef08a;">${wins[key] || 0}</td>
       </tr>
     `;
   };
 
-  // Sort so the console with the lowest (best) season average shows on top
+  // Sort so the console with the lowest (best) weekly average shows on top;
+  // fall back to season average when a team hasn't played this week
   const sortedKeys = ['xbox', 'playstation'].sort((a, b) => {
+    const wkA = teams[a].weekRounds > 0 ? teams[a].weekStrokes / teams[a].weekRounds : Infinity;
+    const wkB = teams[b].weekRounds > 0 ? teams[b].weekStrokes / teams[b].weekRounds : Infinity;
+    if (wkA !== wkB) return wkA - wkB;
     const avgA = teams[a].seasonRounds > 0 ? teams[a].seasonStrokes / teams[a].seasonRounds : Infinity;
     const avgB = teams[b].seasonRounds > 0 ? teams[b].seasonStrokes / teams[b].seasonRounds : Infinity;
     return avgA - avgB;
