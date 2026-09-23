@@ -356,6 +356,21 @@
     <div class="brand-main">LST Grid Munchers Challenge</div>
 	
     <textarea id="venue-name" class="venue-input" rows="1" placeholder="ENTER VENUE NAME"></textarea>
+
+    <div class="admin-only" style="margin-top:8px; display:flex; align-items:center; gap:8px; justify-content:center; flex-wrap:wrap;">
+      <label for="rounds-this-week" style="font-size:0.7rem; color:#94a3b8; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Rounds This Week</label>
+      <select id="rounds-this-week" onchange="updateRoundsThisWeek()" style="background:#0f172a; border:1px solid #334155; border-radius:6px; color:#f8fafc; padding:4px 8px; font-weight:700;">
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4" selected>4</option>
+      </select>
+
+      <label for="major-tournament-toggle" style="display:flex; align-items:center; gap:5px; font-size:0.7rem; color:#fbbf24; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; cursor:pointer; margin-left:8px;">
+        <input type="checkbox" id="major-tournament-toggle" onchange="updateMajorTournament()" style="width:14px; height:14px; accent-color:#fbbf24; cursor:pointer;">
+        🏆 Major Tournament (2x Points)
+      </label>
+    </div>
   </div>
 
   <details id="scorecard-details" style="margin-bottom: 12px; background: rgba(30, 41, 59, 0.7); border-radius: 8px; border: 1px solid var(--glass-border); overflow: hidden;">
@@ -461,7 +476,7 @@
           <th style="width:11%;">AVG</th>
           <th style="width:11%;">BEST</th>
           <th style="width:9%; color:#ec4899;">HiO</th>
-          <th style="width:9%; color:#a855f7;">ALB</th>
+          <th style="width:9%; color:#a855f7;">ALBY</th>
           <th style="width:10%; color:#fef08a;">EAG</th>
           <th style="width:10%; color:#38bdf8;">BIR</th>
         </tr>
@@ -471,6 +486,28 @@
   </div>
 </div>
 
+</div>
+
+<!-- 4. BATTLE OF THE CONSOLES -->
+<div class="team-table-wrapper" style="margin-top:15px;">
+  <h3 style="text-align:center; font-size:0.85rem; color:#fef08a; letter-spacing:1px; margin: 10px 0 5px 0;">
+    ⚔️ BATTLE OF THE CONSOLES
+  </h3>
+  <div class="table-wrapper">
+    <table class="leaderboard-table" id="console-battle-leaderboard">
+      <thead>
+        <tr>
+          <th style="width:26%; text-align:left; padding-left:10px;">TEAM</th>
+          <th style="width:12%;">PLAYERS</th>
+          <th style="width:16%;">STROKES</th>
+          <th style="width:16%;">VS PAR</th>
+          <th style="width:15%;">AVG</th>
+          <th style="width:15%;">WINS</th>
+        </tr>
+      </thead>
+      <tbody id="console-battle-body"></tbody>
+    </table>
+  </div>
 </div>
 
     <div id="history-container"></div>
@@ -514,7 +551,10 @@ if (venueTextarea) {
 function applyAdminUI(isAdmin) {
   window.isAdmin = isAdmin;
   document.querySelectorAll('.admin-only').forEach(el => {
-    el.style.display = isAdmin ? (el.tagName === 'BUTTON' ? 'inline-block' : 'table-cell') : 'none';
+    let displayVal = 'table-cell';
+    if (el.tagName === 'BUTTON') displayVal = 'inline-block';
+    else if (el.tagName === 'DIV') displayVal = 'flex';
+    el.style.display = isAdmin ? displayVal : 'none';
   });
   document.querySelectorAll('.par-input').forEach(el => el.readOnly = !isAdmin);
   const venueInput = document.getElementById('venue-name');
@@ -523,6 +563,40 @@ function applyAdminUI(isAdmin) {
   if (loginBtn) loginBtn.style.display = isAdmin ? 'none' : 'inline-block';
   renderPlayers();
   if (typeof updateCalculations === 'function') updateCalculations();
+}
+
+window.roundsThisWeek = 4;
+window.isMajorWeek = false;
+window.consoleWins = { xbox: 0, playstation: 0 };
+
+function updateRoundsThisWeek() {
+  const sel = document.getElementById('rounds-this-week');
+  window.roundsThisWeek = parseInt(sel.value) || 4;
+  renderPlayers();
+  updateCalculations();
+  if (typeof window.saveState === 'function') window.saveState();
+}
+
+function applyMajorVenueStyle() {
+  const venueEl = document.getElementById('venue-name');
+  if (!venueEl) return;
+  if (window.isMajorWeek) {
+    venueEl.style.color = '#fbbf24';
+    venueEl.style.fontWeight = '800';
+    venueEl.style.textShadow = '0 0 8px rgba(251,191,36,0.4)';
+  } else {
+    venueEl.style.color = '';
+    venueEl.style.fontWeight = '';
+    venueEl.style.textShadow = '';
+  }
+}
+
+function updateMajorTournament() {
+  const chk = document.getElementById('major-tournament-toggle');
+  window.isMajorWeek = !!chk.checked;
+  applyMajorVenueStyle();
+  if (typeof updateIndividualLeaderboard === 'function') updateIndividualLeaderboard();
+  if (typeof window.saveState === 'function') window.saveState();
 }
 
 function scrollToTop() { window.scrollTo({ top: 0, behavior: 'smooth' }); }
@@ -559,6 +633,14 @@ function applyState(state) {
   window.seasonPoints = state.seasonPoints || {};
   window.leagueHistory = state.leagueHistory || state.history || [];
   document.getElementById('venue-name').value = state.venueName || '';
+  window.roundsThisWeek = state.roundsThisWeek || 4;
+  const roundsSel = document.getElementById('rounds-this-week');
+  if (roundsSel) roundsSel.value = String(window.roundsThisWeek);
+  window.isMajorWeek = !!state.isMajorWeek;
+  const majorChk = document.getElementById('major-tournament-toggle');
+  if (majorChk) majorChk.checked = window.isMajorWeek;
+  applyMajorVenueStyle();
+  window.consoleWins = state.consoleWins || { xbox: 0, playstation: 0 };
   
   const parInputs = document.querySelectorAll('.par-input');
   if (state.pars) state.pars.forEach((v, i) => { if(parInputs[i]) parInputs[i].value = v; });
@@ -618,16 +700,18 @@ function applyState(state) {
 	  const tbody = document.getElementById('players-body');
 	  tbody.innerHTML = '';
 	  const isAdmin = !!window.isAdmin;
+	  const roundsThisWeek = window.roundsThisWeek || 4;
+	  const linkRowNum = Math.min(2, roundsThisWeek); // put profile-link/platforms controls on R2, or R1 if only 1 round this week
 
 	  let tabCounter = 1; // Explicit Tab Navigation Tracking
 
 	  window.players.forEach((p, pIdx) => {
 		let playerHtml = '';
 
-		[1, 2, 3, 4].forEach(rdNum => {
+		[1, 2, 3, 4].filter(rd => rd <= roundsThisWeek).forEach(rdNum => {
 	  const scores = getRoundScores(p, rdNum);
 	  const isFirst = rdNum === 1;
-	  const isSecond = rdNum === 2; // <-- Check if it's Round 2
+	  const isSecond = rdNum === linkRowNum; // <-- link/platform controls row
 
 	  playerHtml += `<tr class="${isFirst ? 'player-header-row' : ''}">
 		<td class="admin-only" style="${isAdmin ? 'display:table-cell' : 'display:none'}">
@@ -667,7 +751,7 @@ function applyState(state) {
     playerHtml += `<tr class="player-summary-row">
       <td class="admin-only" style="${isAdmin ? 'display:table-cell' : 'display:none'}"></td>
       <td colspan="2" style="text-align:right; padding-right:8px; color:#fef08a;">TOTAL COMBINED</td>
-      <td colspan="20" style="text-align:left; color:#cbd5e1; font-size:0.65rem;">(All 4 Rounds)</td>
+      <td colspan="20" style="text-align:left; color:#cbd5e1; font-size:0.65rem;">(All ${roundsThisWeek} Round${roundsThisWeek > 1 ? 's' : ''})</td>
       <td id="p-grand-gross-${pIdx}" style="color:#fef08a;">0</td>
       <td id="p-grand-rel-${pIdx}">-</td>
     </tr>`;
@@ -733,8 +817,9 @@ function updateCalculations(triggerSave = true) {
   window.players.forEach((p, pIdx) => {
     let grandGross = 0;
     let grandParPlayed = 0;
+    const roundsThisWeek = window.roundsThisWeek || 4;
 
-    [1, 2, 3, 4].forEach(rdNum => {
+    [1, 2, 3, 4].filter(rd => rd <= roundsThisWeek).forEach(rdNum => {
       let rdGross = 0;
       let playedPar = 0;
       let rdOut = 0, rdIn = 0;
@@ -787,6 +872,7 @@ function updateCalculations(triggerSave = true) {
   updateIndividualLeaderboard();
   updateStatsLeaderboard();
   updateFinishesLeaderboard();
+  updateConsoleBattle();
   if (triggerSave && typeof window.saveState === 'function') window.saveState();
 }
 
@@ -903,6 +989,10 @@ function updateIndividualLeaderboard() {
   };
   const pointDistribution = [100, 60, 40, 25, 15, 10, 8, 6, 4, 2];
 
+  const roundsThisWeek = window.roundsThisWeek || 4;
+  const cutsEnabled = roundsThisWeek >= 3; // no cut bonus / low round bonus for 1 or 2 round weeks
+  const totalHolesRequired = roundsThisWeek * 18;
+
   let weekLowRound = Infinity;
 
   let playerData = window.players.map(p => {
@@ -912,7 +1002,7 @@ function updateIndividualLeaderboard() {
     let r3HolesPlayed = 0;
     let roundTotals = { r1: '-', r2: '-', r3: '-', r4: '-' };
 
-    [1, 2, 3, 4].forEach(rd => {
+    [1, 2, 3, 4].filter(rd => rd <= roundsThisWeek).forEach(rd => {
       const rdScores = getRoundScores(p, rd);
       let rdSum = 0;
       let rdHoles = 0;
@@ -952,9 +1042,8 @@ function updateIndividualLeaderboard() {
       relToParNum: relToParNum,
       relToParStr: relToParStr,
       completedHoles: completedHoles,
-      // Made cut once all 72 holes are in, or as soon as Round 3 scoring has begun
-      // (starting R3 is treated as confirmation the player made the cut)
-      madeCut: completedHoles === 72 || r3HolesPlayed > 0,
+      // Made cut once all of this week's holes are in, or (when cuts apply) as soon as Round 3 scoring has begun
+      madeCut: completedHoles === totalHolesRequired || (cutsEnabled && r3HolesPlayed > 0),
       bankedPts: window.seasonPoints?.[p.name] || 0
     };
   });
@@ -969,7 +1058,7 @@ function updateIndividualLeaderboard() {
 
   rankedActivePlayers.forEach(p => {
     let holdsLowRound = false;
-    if (weekLowRound !== Infinity) {
+    if (cutsEnabled && weekLowRound !== Infinity) {
       holdsLowRound = Object.values(p.roundTotals).some(val => parseInt(val) === weekLowRound);
     }
     lowRoundMap[p.name] = holdsLowRound;
@@ -978,11 +1067,13 @@ function updateIndividualLeaderboard() {
     if (p.madeCut) {
       const posPts = pointDistribution[posCount] || 0;
       posCount++;
-      const madeCutBonus = cutBonusMap[p.tagKey] || 0;
+      const madeCutBonus = cutsEnabled ? (cutBonusMap[p.tagKey] || 0) : 0;
       weekPointsMap[p.name] = posPts + madeCutBonus + lowRoundBonus;
     } else {
       weekPointsMap[p.name] = lowRoundBonus;
     }
+    // Major tournament weeks award double points
+    if (window.isMajorWeek) weekPointsMap[p.name] *= 2;
   });
 
   let finalLeaderboard = playerData.map(p => {
@@ -1072,6 +1163,126 @@ function calculatePlayerFinishes(player) {
   });
 
   return counts;
+}
+
+function updateConsoleBattle() {
+  const tbody = document.getElementById('console-battle-body');
+  if (!tbody) return;
+
+  const parInputs = document.querySelectorAll('.par-input');
+  const roundsThisWeek = window.roundsThisWeek || 4;
+
+  const teams = {
+    xbox: { key: 'xbox', label: 'Team Xbox', icon: '<i class="fa-brands fa-xbox platform-icon-xbox"></i>', players: 0, seasonRounds: 0, seasonStrokes: 0, seasonRelToPar: 0, weekRounds: 0, weekStrokes: 0 },
+    playstation: { key: 'playstation', label: 'Team PlayStation', icon: '<i class="fa-brands fa-playstation platform-icon-playstation"></i>', players: 0, seasonRounds: 0, seasonStrokes: 0, seasonRelToPar: 0, weekRounds: 0, weekStrokes: 0 }
+  };
+
+  window.players.forEach(p => {
+    const platforms = p.platforms || [];
+    const onXbox = platforms.includes('xbox');
+    const onPlaystation = platforms.includes('playstation');
+    if (!onXbox && !onPlaystation) return;
+
+    let seasonRounds = 0, seasonStrokes = 0, seasonRelToPar = 0;
+
+    // Historical archived rounds (full 18-hole rounds only)
+    if (window.leagueHistory && window.leagueHistory.length > 0) {
+      window.leagueHistory.forEach(event => {
+        if (!event.rankings) return;
+        const hp = event.rankings.find(r => r.name === p.name);
+        if (hp && hp.holeScores && hp.holeScores.length > 0) {
+          for (let i = 0; i < hp.holeScores.length; i += 18) {
+            const rdHoles = hp.holeScores.slice(i, i + 18);
+            if (rdHoles.length === 18) {
+              let rdSum = 0;
+              let rdRel = 0;
+              rdHoles.forEach(h => {
+                const score = parseInt(h.score);
+                const par = parseInt(h.par) || 4;
+                if (!isNaN(score) && score > 0) { rdSum += score; rdRel += (score - par); }
+              });
+              seasonRounds++;
+              seasonStrokes += rdSum;
+              seasonRelToPar += rdRel;
+            }
+          }
+        }
+      });
+    }
+
+    // Current live week (also folds into season totals)
+    let weekRounds = 0, weekStrokes = 0, weekRelToPar = 0;
+    [1, 2, 3, 4].filter(rd => rd <= roundsThisWeek).forEach(rd => {
+      let rdSum = 0;
+      let rdRel = 0;
+      let rdHoles = 0;
+      getRoundScores(p, rd).forEach((s, hIdx) => {
+        const score = parseInt(s);
+        const par = parseInt(parInputs[hIdx]?.value) || 4;
+        if (!isNaN(score) && score > 0) { rdSum += score; rdRel += (score - par); rdHoles++; }
+      });
+      if (rdHoles === 18) { weekRounds++; weekStrokes += rdSum; weekRelToPar += rdRel; }
+    });
+
+    seasonRounds += weekRounds;
+    seasonStrokes += weekStrokes;
+    seasonRelToPar += weekRelToPar;
+
+    if (onXbox) {
+      teams.xbox.players++;
+      teams.xbox.seasonRounds += seasonRounds;
+      teams.xbox.seasonStrokes += seasonStrokes;
+      teams.xbox.seasonRelToPar += seasonRelToPar;
+      teams.xbox.weekRounds += weekRounds;
+      teams.xbox.weekStrokes += weekStrokes;
+    }
+    if (onPlaystation) {
+      teams.playstation.players++;
+      teams.playstation.seasonRounds += seasonRounds;
+      teams.playstation.seasonStrokes += seasonStrokes;
+      teams.playstation.seasonRelToPar += seasonRelToPar;
+      teams.playstation.weekRounds += weekRounds;
+      teams.playstation.weekStrokes += weekStrokes;
+    }
+  });
+
+  // This week's leader is decided by round AVERAGE (fair regardless of team size), not raw totals
+  const xboxWeekAvg = teams.xbox.weekRounds > 0 ? teams.xbox.weekStrokes / teams.xbox.weekRounds : null;
+  const psWeekAvg = teams.playstation.weekRounds > 0 ? teams.playstation.weekStrokes / teams.playstation.weekRounds : null;
+  const bothPlayedThisWeek = xboxWeekAvg !== null && psWeekAvg !== null;
+  const xboxLeading = bothPlayedThisWeek && xboxWeekAvg < psWeekAvg;
+  const psLeading = bothPlayedThisWeek && psWeekAvg < xboxWeekAvg;
+
+  const wins = window.consoleWins || { xbox: 0, playstation: 0 };
+
+  const relStr = (val) => val === 0 ? 'E' : (val > 0 ? `+${val}` : `${val}`);
+  const relColor = (val) => val < 0 ? '#4ade80' : (val > 0 ? '#f87171' : '#f8fafc');
+
+  const rowHtml = (key, leading) => {
+    const t = teams[key];
+    const seasonAvg = t.seasonRounds > 0 ? (t.seasonStrokes / t.seasonRounds).toFixed(1) : '-';
+    return `
+      <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); ${leading ? 'background:rgba(74,222,128,0.08);' : ''}">
+        <td style="text-align:left; padding-left:10px; font-weight:800; color:#f8fafc;">
+          ${t.icon} ${t.label} ${leading ? '👑' : ''}
+        </td>
+        <td style="text-align:center; color:#cbd5e1;">${t.players}</td>
+        <td style="text-align:center; font-weight:700; color:#fff;">${t.seasonRounds > 0 ? t.seasonStrokes : '-'}</td>
+        <td style="text-align:center; font-weight:800; color:${t.seasonRounds > 0 ? relColor(t.seasonRelToPar) : '#64748b'};">${t.seasonRounds > 0 ? relStr(t.seasonRelToPar) : '-'}</td>
+        <td style="text-align:center; font-weight:700; color:#fff;">${seasonAvg}</td>
+        <td style="text-align:center; font-weight:800; color:#fef08a;">${wins[key] || 0}</td>
+      </tr>
+    `;
+  };
+
+  // Sort so the console with the lowest (best) season average shows on top
+  const sortedKeys = ['xbox', 'playstation'].sort((a, b) => {
+    const avgA = teams[a].seasonRounds > 0 ? teams[a].seasonStrokes / teams[a].seasonRounds : Infinity;
+    const avgB = teams[b].seasonRounds > 0 ? teams[b].seasonStrokes / teams[b].seasonRounds : Infinity;
+    return avgA - avgB;
+  });
+
+  tbody.innerHTML = sortedKeys.map(key => rowHtml(key, key === 'xbox' ? xboxLeading : psLeading)).join('');
 }
 
 function updateFinishesLeaderboard() {
@@ -1398,6 +1609,8 @@ function renderHistory() {
         pts = lowRoundBonus;
       }
 
+      if (event.isMajor) pts *= 2;
+
       return `
         <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); height: 36px;">
           <td style="width: 32px; text-align: center; padding: 6px 0 6px 10px; font-size: 0.9rem;">${medal}</td>
@@ -1418,10 +1631,16 @@ function renderHistory() {
       `;
     }).join('');
 
+    const weekLabel = `Week ${eventIdx + 1}`;
+    const venueDisplay = event.venue || (event.title ? event.title.split(' - ').slice(1).join(' - ') : 'Unknown Venue');
+    const venueHtml = event.isMajor
+      ? `<span style="color:#fbbf24; text-shadow:0 0 6px rgba(251,191,36,0.4);">🏆 ${venueDisplay}</span>`
+      : venueDisplay;
+
     return `
       <div class="archive-card" style="margin-bottom:12px; background:#1e293b; border-radius:6px; overflow:hidden;">
         <div class="archive-header" onclick="toggleArchive(${eventIdx})" style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:#334155; cursor:pointer;">
-          <span style="font-weight:800; color:#fff; font-size:0.9rem;">${event.title}</span>
+          <span style="font-weight:800; color:#fff; font-size:0.9rem;">${weekLabel} - ${venueHtml}</span>
           <span style="font-weight:700; color:#cbd5e1; font-size:0.75rem; margin-left:auto;">VIEW ▼</span>
         </div>
         <div id="archive-body-${eventIdx}" class="archive-body" style="display:none; padding:4px 0;">
@@ -1531,13 +1750,17 @@ function updateProvisionalLeaderboard() {
   };
 
   // 1. Calculate live standings for current active week
+  const roundsThisWeek = window.roundsThisWeek || 4;
+  const cutsEnabled = roundsThisWeek >= 3; // no cut bonus for 1 or 2 round weeks
+  const totalHolesRequired = roundsThisWeek * 18;
+
   let liveStandings = window.players.map(p => {
     let grandTotal = 0;
     let relToParNum = 0;
     let completedHoles = 0;
     let r3HolesPlayed = 0;
 
-    [1, 2, 3, 4].forEach(rd => {
+    [1, 2, 3, 4].filter(rd => rd <= roundsThisWeek).forEach(rd => {
       let rdHoles = 0;
       getRoundScores(p, rd).forEach((s, hIdx) => {
         const score = parseInt(s);
@@ -1560,8 +1783,8 @@ function updateProvisionalLeaderboard() {
       grandTotal: grandTotal,
       relToParNum: relToParNum,
       completedHoles: completedHoles,
-      // Made cut once all 72 holes are in, or as soon as Round 3 scoring has begun
-      madeCut: completedHoles === 72 || r3HolesPlayed > 0
+      // Made cut once all of this week's holes are in, or (when cuts apply) as soon as Round 3 scoring has begun
+      madeCut: completedHoles === totalHolesRequired || (cutsEnabled && r3HolesPlayed > 0)
     };
   })
   .filter(p => p.completedHoles > 0)
@@ -1579,11 +1802,14 @@ function updateProvisionalLeaderboard() {
       const posPts = pointDistribution[pointsAppliedCount] || 0;
       pointsAppliedCount++;
 
-      // Tag Cut Bonus points (e.g., cc-h = 6)
-      const bonusPts = cutBonusMap[p.tagKey] || 0;
+      // Tag Cut Bonus points (e.g., cc-h = 6) - only when cuts apply this week
+      const bonusPts = cutsEnabled ? (cutBonusMap[p.tagKey] || 0) : 0;
 
       totalPts = posPts + bonusPts;
     }
+
+    // Major tournament weeks award double points
+    if (window.isMajorWeek) totalPts *= 2;
 
     provisionalWeekPoints[p.name] = totalPts;
   });
@@ -1688,7 +1914,12 @@ function updateProvisionalLeaderboard() {
 }
 
 function endEvent() {
-  if (!confirm("Finalize week and award points (Position Points + Tag Cut Bonuses)?\n\nNote: Players who did not complete all 4 rounds (72 holes) receive 0 points.")) return;
+  const roundsThisWeek = window.roundsThisWeek || 4;
+  const cutsEnabled = roundsThisWeek >= 3; // no cut bonus for 1 or 2 round weeks
+  const totalHolesRequired = roundsThisWeek * 18;
+  const wasMajorWeek = !!window.isMajorWeek;
+
+  if (!confirm(`Finalize week and award points (Position Points${cutsEnabled ? ' + Tag Cut Bonuses' : ''}${window.isMajorWeek ? ' — DOUBLED (Major Tournament)' : ''})?\n\nNote: Players who did not complete all ${roundsThisWeek} round${roundsThisWeek > 1 ? 's' : ''} (${totalHolesRequired} holes) receive 0 points.`)) return;
 
   const venue = document.getElementById('venue-name').value || "Unknown Venue";
   const parInputs = document.querySelectorAll('.par-input');
@@ -1713,7 +1944,7 @@ function endEvent() {
     let relToParNum = 0;
     let completedHoles = 0;
 
-    [1, 2, 3, 4].forEach(rd => {
+    [1, 2, 3, 4].filter(rd => rd <= roundsThisWeek).forEach(rd => {
       getRoundScores(p, rd).forEach((s, hIdx) => {
         const score = parseInt(s);
         const par = parseInt(parInputs[hIdx]?.value) || 4;
@@ -1733,7 +1964,7 @@ function endEvent() {
       grandTotal: grandTotal, 
       relToParNum: relToParNum,
       completedHoles: completedHoles,
-      madeCut: completedHoles === 72
+      madeCut: completedHoles === totalHolesRequired
     };
   })
   .filter(p => p.completedHoles > 0)
@@ -1749,9 +1980,12 @@ function endEvent() {
       const posPts = pointDistribution[pointsAppliedCount] || 0;
       pointsAppliedCount++;
 
-      const bonusPts = cutBonusMap[p.tagKey] || 0;
+      const bonusPts = cutsEnabled ? (cutBonusMap[p.tagKey] || 0) : 0;
       pts = posPts + bonusPts;
     }
+
+    // Major tournament weeks award double points
+    if (window.isMajorWeek) pts *= 2;
 
     // Accumulate season points
     window.seasonPoints[p.name] = (window.seasonPoints[p.name] || 0) + pts;
@@ -1761,7 +1995,7 @@ function endEvent() {
     const playerObj = window.players.find(pl => pl.name === p.name);
     let holeScores = [];
     if (playerObj) {
-      [1, 2, 3, 4].forEach(rd => {
+      [1, 2, 3, 4].filter(rd => rd <= roundsThisWeek).forEach(rd => {
         const rdScores = getRoundScores(playerObj, rd);
         rdScores.forEach((s, hIdx) => {
           const par = parseInt(parInputs[hIdx]?.value) || 4;
@@ -1780,9 +2014,37 @@ function endEvent() {
     };
   });
 
+  // Determine this week's console battle winner (by round average) and bank the win for the season
+  (function tallyConsoleBattleWin() {
+    const consoleTeams = { xbox: { rounds: 0, strokes: 0 }, playstation: { rounds: 0, strokes: 0 } };
+    window.players.forEach(p => {
+      const platforms = p.platforms || [];
+      let rdRounds = 0, rdStrokes = 0;
+      [1, 2, 3, 4].filter(rd => rd <= roundsThisWeek).forEach(rd => {
+        let rdSum = 0, rdHoles = 0;
+        getRoundScores(p, rd).forEach(s => {
+          const score = parseInt(s);
+          if (!isNaN(score) && score > 0) { rdSum += score; rdHoles++; }
+        });
+        if (rdHoles === 18) { rdRounds++; rdStrokes += rdSum; }
+      });
+      if (platforms.includes('xbox')) { consoleTeams.xbox.rounds += rdRounds; consoleTeams.xbox.strokes += rdStrokes; }
+      if (platforms.includes('playstation')) { consoleTeams.playstation.rounds += rdRounds; consoleTeams.playstation.strokes += rdStrokes; }
+    });
+    const xboxAvg = consoleTeams.xbox.rounds > 0 ? consoleTeams.xbox.strokes / consoleTeams.xbox.rounds : null;
+    const psAvg = consoleTeams.playstation.rounds > 0 ? consoleTeams.playstation.strokes / consoleTeams.playstation.rounds : null;
+    if (!window.consoleWins) window.consoleWins = { xbox: 0, playstation: 0 };
+    if (xboxAvg !== null && psAvg !== null && xboxAvg !== psAvg) {
+      if (xboxAvg < psAvg) window.consoleWins.xbox = (window.consoleWins.xbox || 0) + 1;
+      else window.consoleWins.playstation = (window.consoleWins.playstation || 0) + 1;
+    }
+  })();
+
   // Archive event
   window.leagueHistory.push({ 
     title: `Week ${window.leagueHistory.length + 1} - ${venue}`, 
+    venue: venue,
+    isMajor: !!window.isMajorWeek,
     rankings: rankingsWithPoints 
   });
 
@@ -1796,6 +2058,17 @@ function endEvent() {
   });
 
   document.getElementById('venue-name').value = '';
+
+  // Reset rounds-this-week back to the default 4 for the next event
+  window.roundsThisWeek = 4;
+  const roundsSelEl = document.getElementById('rounds-this-week');
+  if (roundsSelEl) roundsSelEl.value = '4';
+
+  // Reset major tournament toggle for the next event
+  window.isMajorWeek = false;
+  const majorChkEl = document.getElementById('major-tournament-toggle');
+  if (majorChkEl) majorChkEl.checked = false;
+  applyMajorVenueStyle();
   
   if (typeof window.saveState === 'function') window.saveState();
   renderPlayers();
@@ -1803,7 +2076,7 @@ function endEvent() {
   updateIndividualLeaderboard();
   updateFinishesLeaderboard();
   
-  alert("Event Finalized! Position & Cut Bonus points awarded.");
+  alert(`Event Finalized! Position & Cut Bonus points awarded${wasMajorWeek ? ' (DOUBLED for Major Tournament)' : ''}.`);
 }
 
 function openPlayerProfile(playerName) {
@@ -1923,8 +2196,8 @@ function openPlayerProfile(playerName) {
 
         historyRowsHtml += `
           <tr style="border-bottom:1px solid rgba(255,255,255,0.05); height:28px;">
-            <td style="text-align:left; padding-left:8px; font-weight:700; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-              ${event.title || 'Archived Event'}
+            <td style="text-align:left; padding-left:8px; font-weight:700; ${event.isMajor ? 'color:#fbbf24;' : 'color:#f8fafc;'} white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+              ${event.isMajor ? '🏆 ' : ''}${event.title || 'Archived Event'}
             </td>
             ${formatRdCell(rTotals[0])}
             ${formatRdCell(rTotals[1])}
@@ -2040,7 +2313,7 @@ window.openPlayerProfile = openPlayerProfile;
 window.closePlayerProfile = closePlayerProfile;
 
 function exportData() {
-  const state = { players: window.players, seasonPoints: window.seasonPoints, leagueHistory: window.leagueHistory, venueName: document.getElementById('venue-name').value };
+  const state = { players: window.players, seasonPoints: window.seasonPoints, leagueHistory: window.leagueHistory, venueName: document.getElementById('venue-name').value, roundsThisWeek: window.roundsThisWeek || 4, isMajorWeek: !!window.isMajorWeek, consoleWins: window.consoleWins || { xbox: 0, playstation: 0 } };
   const blob = new Blob([JSON.stringify(state)], {type: "application/json"});
   const a = document.createElement('a'); 
   a.href = URL.createObjectURL(blob);
@@ -2165,7 +2438,10 @@ function resetScores() {
       seasonPoints: window.seasonPoints || {}, 
       leagueHistory: window.leagueHistory || [],
       venueName: document.getElementById('venue-name')?.value || '',
-      pars: Array.from(document.querySelectorAll('.par-input')).map(i => i.value)
+      pars: Array.from(document.querySelectorAll('.par-input')).map(i => i.value),
+      roundsThisWeek: window.roundsThisWeek || 4,
+      isMajorWeek: !!window.isMajorWeek,
+      consoleWins: window.consoleWins || { xbox: 0, playstation: 0 }
     };
 
     set(leagueRef, state).catch((err) => {
