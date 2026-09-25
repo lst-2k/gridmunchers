@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>LST Grid Munchers</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
@@ -1643,6 +1643,24 @@ function renderHistory() {
       ? `<span style="color:#fbbf24; text-shadow:0 0 6px rgba(251,191,36,0.4);">🏆 ${venueDisplay}</span>`
       : venueDisplay;
 
+    let consoleBattleHtml = '';
+    const cb = event.consoleBattle;
+    if (cb && (cb.psAvg !== null || cb.xboxAvg !== null)) {
+      const psVal = cb.psAvg !== null && cb.psAvg !== undefined ? cb.psAvg.toFixed(1) : '-';
+      const xboxVal = cb.xboxAvg !== null && cb.xboxAvg !== undefined ? cb.xboxAvg.toFixed(1) : '-';
+      const psStyle = cb.winner === 'playstation' ? 'color:#4ade80; font-weight:900;' : 'color:#cbd5e1; font-weight:700;';
+      const xboxStyle = cb.winner === 'xbox' ? 'color:#4ade80; font-weight:900;' : 'color:#cbd5e1; font-weight:700;';
+      consoleBattleHtml = `
+        <div style="text-align:center; padding:8px 10px; border-top:1px solid rgba(255,255,255,0.08); font-size:0.8rem;">
+          <i class="fa-brands fa-playstation platform-icon-playstation"></i>
+          <span style="${psStyle}">PS ${psVal}</span>
+          <span style="color:#64748b;"> v </span>
+          <span style="${xboxStyle}">${xboxVal} Xbox</span>
+          <i class="fa-brands fa-xbox platform-icon-xbox"></i>
+        </div>
+      `;
+    }
+
     return `
       <div class="archive-card" style="margin-bottom:12px; background:#1e293b; border-radius:6px; overflow:hidden;">
         <div class="archive-header" onclick="toggleArchive(${eventIdx})" style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:#334155; cursor:pointer;">
@@ -1653,6 +1671,7 @@ function renderHistory() {
           <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
             <tbody>${rowsHtml}</tbody>
           </table>
+          ${consoleBattleHtml}
         </div>
       </div>
     `;
@@ -2020,8 +2039,8 @@ function endEvent() {
     };
   });
 
-  // Determine this week's console battle winner (by round average) and bank the win for the season
-  (function tallyConsoleBattleWin() {
+  // Determine this week's console battle averages/winner and bank the win for the season
+  const consoleBattleResult = (function tallyConsoleBattleWin() {
     const consoleTeams = { xbox: { rounds: 0, strokes: 0 }, playstation: { rounds: 0, strokes: 0 } };
     window.players.forEach(p => {
       const platforms = p.platforms || [];
@@ -2040,10 +2059,12 @@ function endEvent() {
     const xboxAvg = consoleTeams.xbox.rounds > 0 ? consoleTeams.xbox.strokes / consoleTeams.xbox.rounds : null;
     const psAvg = consoleTeams.playstation.rounds > 0 ? consoleTeams.playstation.strokes / consoleTeams.playstation.rounds : null;
     if (!window.consoleWins) window.consoleWins = { xbox: 0, playstation: 0 };
+    let winner = null;
     if (xboxAvg !== null && psAvg !== null && xboxAvg !== psAvg) {
-      if (xboxAvg < psAvg) window.consoleWins.xbox = (window.consoleWins.xbox || 0) + 1;
-      else window.consoleWins.playstation = (window.consoleWins.playstation || 0) + 1;
+      winner = xboxAvg < psAvg ? 'xbox' : 'playstation';
+      window.consoleWins[winner] = (window.consoleWins[winner] || 0) + 1;
     }
+    return { xboxAvg, psAvg, winner };
   })();
 
   // Archive event
@@ -2051,7 +2072,8 @@ function endEvent() {
     title: `Week ${window.leagueHistory.length + 1} - ${venue}`, 
     venue: venue,
     isMajor: !!window.isMajorWeek,
-    rankings: rankingsWithPoints 
+    rankings: rankingsWithPoints,
+    consoleBattle: consoleBattleResult
   });
 
   // Reset current active scores for next week
